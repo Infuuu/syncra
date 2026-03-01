@@ -79,6 +79,24 @@ Unsubscribe:
 { "type": "unsubscribe_board", "boardId": "<board-uuid>" }
 ```
 
+Catch up missed operations after reconnect:
+
+```json
+{ "type": "sync_catchup", "boardId": "<board-uuid>", "sinceVersion": 0, "limit": 200 }
+```
+
+Server response:
+
+```json
+{
+  "type": "sync.catchup",
+  "boardId": "<board-uuid>",
+  "sinceVersion": 0,
+  "latestVersion": 43,
+  "items": []
+}
+```
+
 When sync operations are applied for a subscribed board, server broadcasts:
 
 ```json

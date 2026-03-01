@@ -155,3 +155,23 @@ When `sync/push` applies an operation, subscribed board members receive:
   }
 }
 ```
+
+### Catch up after reconnect
+
+Client request:
+
+```json
+{ "type": "sync_catchup", "boardId": "<board-uuid>", "sinceVersion": 0, "limit": 200 }
+```
+
+Server response:
+
+```json
+{
+  "type": "sync.catchup",
+  "boardId": "<board-uuid>",
+  "sinceVersion": 0,
+  "latestVersion": 43,
+  "items": []
+}
+```

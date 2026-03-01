@@ -580,6 +580,26 @@ test('WebSocket channels: JWT auth, board subscription authorization, and sync b
     const viewerBroadcast = await viewerBroadcastPromise;
     assert.equal(viewerBroadcast.data.operationType, 'card.created');
     assert.equal(viewerBroadcast.data.entityType, 'card');
+    assert.ok(Number.isInteger(viewerBroadcast.data.version));
+
+    viewerWs.send(
+      JSON.stringify({
+        type: 'sync_catchup',
+        boardId,
+        sinceVersion: viewerBroadcast.data.version - 1,
+        limit: 50
+      })
+    );
+
+    const catchupResponse = await waitForWsMessage(
+      viewerWs,
+      (msg) =>
+        msg.type === 'sync.catchup' &&
+        msg.boardId === boardId &&
+        Array.isArray(msg.items)
+    );
+    assert.ok(catchupResponse.latestVersion >= viewerBroadcast.data.version);
+    assert.ok(catchupResponse.items.some((item) => item.version === viewerBroadcast.data.version));
 
     viewerWs.close();
     outsiderWs.close();

@@ -1,6 +1,7 @@
 const { WebSocketServer } = require('ws');
 const { verifyAuthToken } = require('../services/tokenService');
 const boardMemberRepository = require('../repositories/boardMemberRepository');
+const syncRepository = require('../repositories/syncRepository');
 
 const setupWebSocket = (server) => {
   const wss = new WebSocketServer({ server });
@@ -8,6 +9,12 @@ const setupWebSocket = (server) => {
   const send = (socket, event) => {
     if (socket.readyState !== 1) return;
     socket.send(JSON.stringify(event));
+  };
+
+  const parseSinceVersion = (value) => {
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < 0) return null;
+    return parsed;
   };
 
   const parseTokenFromRequest = (request) => {
@@ -102,6 +109,54 @@ const setupWebSocket = (server) => {
 
       if (type === 'ping') {
         send(socket, { type: 'pong', at: new Date().toISOString() });
+        return;
+      }
+
+      if (type === 'sync_catchup') {
+        if (!boardId) {
+          send(socket, { type: 'error', error: 'boardId is required' });
+          return;
+        }
+
+        const sinceVersion = parseSinceVersion(message?.sinceVersion ?? 0);
+        if (sinceVersion === null) {
+          send(socket, { type: 'error', error: 'sinceVersion must be a non-negative integer' });
+          return;
+        }
+
+        const limitRaw = Number(message?.limit ?? 200);
+        const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 1000) : 200;
+
+        const role = await boardMemberRepository.getBoardRole({
+          boardId,
+          userId: socket.auth.userId
+        });
+
+        if (!role) {
+          send(socket, { type: 'error', error: 'forbidden_board_subscription', boardId });
+          return;
+        }
+
+        const items = await syncRepository.listOperationsForUserSinceVersion({
+          userId: socket.auth.userId,
+          sinceVersion,
+          boardId,
+          limit
+        });
+
+        const latestVersion = await syncRepository.getLatestVisibleVersionForUser({
+          userId: socket.auth.userId,
+          sinceVersion,
+          boardId
+        });
+
+        send(socket, {
+          type: 'sync.catchup',
+          boardId,
+          sinceVersion,
+          latestVersion,
+          items
+        });
         return;
       }
 
