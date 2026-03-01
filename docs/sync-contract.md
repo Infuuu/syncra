@@ -116,6 +116,7 @@ Returns operations visible to the caller, strictly after `sinceVersion`.
 - `board.deleted`: payload requires `expectedVersion`
 
 `board.created` is intentionally not allowed via sync. Use `POST /api/boards`.
+Delete actions are implemented as tombstones in canonical tables (`is_deleted=true`, `deleted_at` set).
 
 ## WebSocket board channels
 

@@ -43,7 +43,7 @@ const parseExpectedVersion = (payload, context) => {
 
 const getBoardSnapshot = async (client, boardId) => {
   const { rows } = await client.query(
-    'SELECT id, name, version, created_at, updated_at FROM boards WHERE id = $1',
+    'SELECT id, name, version, is_deleted, deleted_at, created_at, updated_at FROM boards WHERE id = $1',
     [boardId]
   );
   if (!rows[0]) return null;
@@ -53,6 +53,8 @@ const getBoardSnapshot = async (client, boardId) => {
       id: rows[0].id,
       name: rows[0].name,
       version: Number(rows[0].version),
+      isDeleted: rows[0].is_deleted,
+      deletedAt: rows[0].deleted_at,
       createdAt: rows[0].created_at,
       updatedAt: rows[0].updated_at
     }
@@ -61,7 +63,7 @@ const getBoardSnapshot = async (client, boardId) => {
 
 const getListSnapshot = async (client, boardId, listId) => {
   const { rows } = await client.query(
-    `SELECT id, board_id, title, order_index, version, created_at, updated_at
+    `SELECT id, board_id, title, order_index, version, is_deleted, deleted_at, created_at, updated_at
      FROM lists
      WHERE id = $1::uuid AND board_id = $2::uuid`,
     [listId, boardId]
@@ -75,6 +77,8 @@ const getListSnapshot = async (client, boardId, listId) => {
       title: rows[0].title,
       orderIndex: rows[0].order_index,
       version: Number(rows[0].version),
+      isDeleted: rows[0].is_deleted,
+      deletedAt: rows[0].deleted_at,
       createdAt: rows[0].created_at,
       updatedAt: rows[0].updated_at
     }
@@ -83,7 +87,7 @@ const getListSnapshot = async (client, boardId, listId) => {
 
 const getCardSnapshot = async (client, boardId, cardId) => {
   const { rows } = await client.query(
-    `SELECT id, board_id, list_id, title, description, order_index, version, created_at, updated_at
+    `SELECT id, board_id, list_id, title, description, order_index, version, is_deleted, deleted_at, created_at, updated_at
      FROM cards
      WHERE id = $1::uuid AND board_id = $2::uuid`,
     [cardId, boardId]
@@ -99,6 +103,8 @@ const getCardSnapshot = async (client, boardId, cardId) => {
       description: rows[0].description,
       orderIndex: rows[0].order_index,
       version: Number(rows[0].version),
+      isDeleted: rows[0].is_deleted,
+      deletedAt: rows[0].deleted_at,
       createdAt: rows[0].created_at,
       updatedAt: rows[0].updated_at
     }
@@ -126,7 +132,7 @@ const applyBoardOperation = async (client, operation) => {
     const { rowCount } = await client.query(
       `UPDATE boards
        SET name = $2, version = version + 1, updated_at = now()
-       WHERE id = $1 AND version = $3`,
+       WHERE id = $1 AND version = $3 AND is_deleted = FALSE`,
       [boardId, payload.name.trim(), expectedVersion]
     );
 
@@ -141,7 +147,9 @@ const applyBoardOperation = async (client, operation) => {
   if (action === 'deleted') {
     const expectedVersion = parseExpectedVersion(payload, 'board delete');
     const { rowCount } = await client.query(
-      'DELETE FROM boards WHERE id = $1 AND version = $2',
+      `UPDATE boards
+       SET is_deleted = TRUE, deleted_at = now(), version = version + 1, updated_at = now()
+       WHERE id = $1 AND version = $2 AND is_deleted = FALSE`,
       [boardId, expectedVersion]
     );
     if (rowCount === 0) {
@@ -149,6 +157,18 @@ const applyBoardOperation = async (client, operation) => {
       if (!snapshot) throw new SyncApplyError('board not found', 404);
       throw new SyncApplyConflictError('board version conflict', snapshot);
     }
+    await client.query(
+      `UPDATE lists
+       SET is_deleted = TRUE, deleted_at = now(), version = version + 1, updated_at = now()
+       WHERE board_id = $1 AND is_deleted = FALSE`,
+      [boardId]
+    );
+    await client.query(
+      `UPDATE cards
+       SET is_deleted = TRUE, deleted_at = now(), version = version + 1, updated_at = now()
+       WHERE board_id = $1 AND is_deleted = FALSE`,
+      [boardId]
+    );
     return;
   }
 
@@ -162,6 +182,14 @@ const applyListOperation = async (client, operation) => {
   const payload = operation.payload || {};
 
   if (action === 'created') {
+    const boardCheck = await client.query(
+      'SELECT 1 FROM boards WHERE id = $1::uuid AND is_deleted = FALSE LIMIT 1',
+      [boardId]
+    );
+    if (boardCheck.rowCount === 0) {
+      throw new SyncApplyError('board not found', 404);
+    }
+
     const title = requireStringField(payload, 'title');
     const orderIndex = Number.isFinite(Number(payload.orderIndex)) ? Number(payload.orderIndex) : 0;
 
@@ -210,7 +238,7 @@ const applyListOperation = async (client, operation) => {
     const { rowCount } = await client.query(
       `UPDATE lists
        SET ${updates.join(', ')}, version = version + 1, updated_at = now()
-       WHERE id = $1::uuid AND board_id = $2::uuid AND version = $${versionIndex}`,
+       WHERE id = $1::uuid AND board_id = $2::uuid AND version = $${versionIndex} AND is_deleted = FALSE`,
       values
     );
 
@@ -225,7 +253,9 @@ const applyListOperation = async (client, operation) => {
   if (action === 'deleted') {
     const expectedVersion = parseExpectedVersion(payload, 'list delete');
     const { rowCount } = await client.query(
-      'DELETE FROM lists WHERE id = $1::uuid AND board_id = $2::uuid AND version = $3',
+      `UPDATE lists
+       SET is_deleted = TRUE, deleted_at = now(), version = version + 1, updated_at = now()
+       WHERE id = $1::uuid AND board_id = $2::uuid AND version = $3 AND is_deleted = FALSE`,
       [listId, boardId, expectedVersion]
     );
 
@@ -234,6 +264,12 @@ const applyListOperation = async (client, operation) => {
       if (!snapshot) throw new SyncApplyError('list not found', 404);
       throw new SyncApplyConflictError('list version conflict', snapshot);
     }
+    await client.query(
+      `UPDATE cards
+       SET is_deleted = TRUE, deleted_at = now(), version = version + 1, updated_at = now()
+       WHERE list_id = $1::uuid AND board_id = $2::uuid AND is_deleted = FALSE`,
+      [listId, boardId]
+    );
     return;
   }
 
@@ -253,7 +289,7 @@ const applyCardOperation = async (client, operation) => {
     const orderIndex = Number.isFinite(Number(payload.orderIndex)) ? Number(payload.orderIndex) : 0;
 
     const listCheck = await client.query(
-      'SELECT 1 FROM lists WHERE id = $1::uuid AND board_id = $2::uuid LIMIT 1',
+      'SELECT 1 FROM lists WHERE id = $1::uuid AND board_id = $2::uuid AND is_deleted = FALSE LIMIT 1',
       [listId, boardId]
     );
     if (listCheck.rowCount === 0) {
@@ -303,7 +339,7 @@ const applyCardOperation = async (client, operation) => {
     if (typeof payload.listId === 'string' && payload.listId.trim()) {
       const listId = payload.listId.trim();
       const listCheck = await client.query(
-        'SELECT 1 FROM lists WHERE id = $1::uuid AND board_id = $2::uuid LIMIT 1',
+        'SELECT 1 FROM lists WHERE id = $1::uuid AND board_id = $2::uuid AND is_deleted = FALSE LIMIT 1',
         [listId, boardId]
       );
       if (listCheck.rowCount === 0) {
@@ -324,7 +360,7 @@ const applyCardOperation = async (client, operation) => {
     const { rowCount } = await client.query(
       `UPDATE cards
        SET ${updates.join(', ')}, version = version + 1, updated_at = now()
-       WHERE id = $1::uuid AND board_id = $2::uuid AND version = $${versionIndex}`,
+       WHERE id = $1::uuid AND board_id = $2::uuid AND version = $${versionIndex} AND is_deleted = FALSE`,
       values
     );
 
@@ -339,7 +375,9 @@ const applyCardOperation = async (client, operation) => {
   if (action === 'deleted') {
     const expectedVersion = parseExpectedVersion(payload, 'card delete');
     const { rowCount } = await client.query(
-      'DELETE FROM cards WHERE id = $1::uuid AND board_id = $2::uuid AND version = $3',
+      `UPDATE cards
+       SET is_deleted = TRUE, deleted_at = now(), version = version + 1, updated_at = now()
+       WHERE id = $1::uuid AND board_id = $2::uuid AND version = $3 AND is_deleted = FALSE`,
       [cardId, boardId, expectedVersion]
     );
 

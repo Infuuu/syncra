@@ -8,6 +8,8 @@ const mapCard = (row) => ({
   description: row.description,
   orderIndex: row.order_index,
   version: Number(row.version),
+  isDeleted: row.is_deleted,
+  deletedAt: row.deleted_at,
   createdAt: row.created_at,
   updatedAt: row.updated_at
 });
@@ -20,9 +22,10 @@ const requirePool = () => {
 const listCardsByListId = async (listId) => {
   const db = requirePool();
   const { rows } = await db.query(
-    `SELECT id, board_id, list_id, title, description, order_index, version, created_at, updated_at
+    `SELECT id, board_id, list_id, title, description, order_index, version, is_deleted, deleted_at, created_at, updated_at
      FROM cards
      WHERE list_id = $1
+       AND is_deleted = FALSE
      ORDER BY order_index ASC, created_at ASC`,
     [listId]
   );
@@ -34,7 +37,7 @@ const createCard = async ({ boardId, listId, title, description, orderIndex }) =
   const { rows } = await db.query(
     `INSERT INTO cards (board_id, list_id, title, description, order_index, updated_at)
      VALUES ($1, $2, $3, $4, $5, now())
-     RETURNING id, board_id, list_id, title, description, order_index, version, created_at, updated_at`,
+     RETURNING id, board_id, list_id, title, description, order_index, version, is_deleted, deleted_at, created_at, updated_at`,
     [boardId, listId, title, description, orderIndex]
   );
   return mapCard(rows[0]);
@@ -43,9 +46,10 @@ const createCard = async ({ boardId, listId, title, description, orderIndex }) =
 const getCardById = async (cardId) => {
   const db = requirePool();
   const { rows } = await db.query(
-    `SELECT id, board_id, list_id, title, description, order_index, version, created_at, updated_at
+    `SELECT id, board_id, list_id, title, description, order_index, version, is_deleted, deleted_at, created_at, updated_at
      FROM cards
-     WHERE id = $1`,
+     WHERE id = $1
+       AND is_deleted = FALSE`,
     [cardId]
   );
   return rows[0] ? mapCard(rows[0]) : null;
@@ -84,10 +88,11 @@ const updateCard = async (cardId, patch) => {
   values.push(cardId);
 
   const { rows } = await db.query(
-    `UPDATE cards
+     `UPDATE cards
      SET ${fields.join(', ')}, version = version + 1, updated_at = now()
      WHERE id = $${values.length}
-     RETURNING id, board_id, list_id, title, description, order_index, version, created_at, updated_at`,
+       AND is_deleted = FALSE
+     RETURNING id, board_id, list_id, title, description, order_index, version, is_deleted, deleted_at, created_at, updated_at`,
     values
   );
 

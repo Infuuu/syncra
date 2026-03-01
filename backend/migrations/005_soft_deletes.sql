@@ -1,0 +1,12 @@
+ALTER TABLE boards ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE boards ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+ALTER TABLE lists ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE lists ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+ALTER TABLE cards ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE cards ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_boards_not_deleted ON boards(id) WHERE is_deleted = FALSE;
+CREATE INDEX IF NOT EXISTS idx_lists_board_not_deleted ON lists(board_id, order_index) WHERE is_deleted = FALSE;
+CREATE INDEX IF NOT EXISTS idx_cards_list_not_deleted ON cards(list_id, order_index) WHERE is_deleted = FALSE;

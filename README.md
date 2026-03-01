@@ -139,6 +139,7 @@ Supported operation actions: `created`, `updated`, `moved`, `deleted` for `list`
 - Optimistic concurrency is enforced for update/move/delete sync actions using `payload.expectedVersion`.
 - On version conflict, `sync/push` returns `409` with the latest server snapshot in:
   - `conflict.serverSnapshot`
+- Deletes are tombstoned (`is_deleted`, `deleted_at`) in canonical tables for safer offline reconciliation.
 - Rate limiting is enabled:
   - `/api/auth`: fixed-window IP limit
   - `/api/sync`: fixed-window user/IP limit
