@@ -100,6 +100,18 @@ Dry run:
 npm run job:cleanup:tombstones -- --dry-run
 ```
 
+Maintenance cleanup job (refresh tokens + resolved sync failures + audit logs):
+
+```bash
+npm run job:cleanup:maintenance
+```
+
+Dry run:
+
+```bash
+npm run job:cleanup:maintenance -- --dry-run
+```
+
 ## WebSocket
 
 Connect with JWT token in query string:
@@ -200,6 +212,10 @@ Supported operation actions: `created`, `updated`, `moved`, `deleted` for `list`
 - `syncPushConflictsTotal` metric is tracked and exposed via `/metrics`.
 - Metrics now include route-labeled request counters, route-labeled request-duration histograms, and sync push error counters by reason/status.
 - Docker runtime is provided via `/Users/sharadsingh/Downloads/Resume Projects/syncra/docker-compose.yml` and `/Users/sharadsingh/Downloads/Resume Projects/syncra/backend/Dockerfile`.
+- Maintenance cleanup retention knobs:
+  - `REFRESH_TOKEN_CLEANUP_RETENTION_DAYS`
+  - `SYNC_FAILURE_RETENTION_DAYS`
+  - `AUDIT_LOG_RETENTION_DAYS`
 
 ## Next Steps
 
