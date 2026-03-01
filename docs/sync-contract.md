@@ -123,6 +123,17 @@ Returns operations visible to the caller, strictly after `sinceVersion`.
 ws://localhost:4000?token=<JWT>
 ```
 
+Welcome event:
+
+```json
+{
+  "type": "welcome",
+  "message": "Connected to Syncra WebSocket server",
+  "userId": "<user-uuid>",
+  "reconnectHint": "resubscribe_and_catchup"
+}
+```
+
 ### Subscribe to board
 
 ```json
@@ -175,3 +186,14 @@ Server response:
   "items": []
 }
 ```
+
+## Flutter reconnect guidance
+
+Maintain `lastSeenVersion` per board in local SQLite.
+
+On WS reconnect:
+1. Reconnect with fresh JWT token.
+2. Send `subscribe_board` for each locally opened/active board.
+3. Send `sync_catchup` with `sinceVersion = lastSeenVersion`.
+4. Apply `sync.catchup.items` in order, update `lastSeenVersion = latestVersion`.
+5. Continue processing live `sync.operation.applied` events and advancing cursor.

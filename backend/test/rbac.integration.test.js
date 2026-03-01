@@ -528,7 +528,8 @@ test('WebSocket channels: JWT auth, board subscription authorization, and sync b
     const listId = listRes.body.id;
 
     const viewerWs = new WebSocket(`${wsUrl}/?token=${encodeURIComponent(viewerToken)}`);
-    await waitForWsMessage(viewerWs, (msg) => msg.type === 'welcome');
+    const viewerWelcome = await waitForWsMessage(viewerWs, (msg) => msg.type === 'welcome');
+    assert.equal(viewerWelcome.reconnectHint, 'resubscribe_and_catchup');
 
     viewerWs.send(JSON.stringify({ type: 'subscribe_board', boardId }));
     const viewerSubscribed = await waitForWsMessage(

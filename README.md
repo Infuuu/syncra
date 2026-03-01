@@ -97,6 +97,18 @@ Server response:
 }
 ```
 
+Server `welcome` includes:
+
+```json
+{ "type": "welcome", "reconnectHint": "resubscribe_and_catchup" }
+```
+
+For Flutter recovery after disconnect:
+1. Reconnect with JWT token.
+2. Re-subscribe all active board channels.
+3. For each board, send `sync_catchup` using last persisted `sinceVersion`.
+4. Apply returned operations to local SQLite and persist new cursor.
+
 When sync operations are applied for a subscribed board, server broadcasts:
 
 ```json

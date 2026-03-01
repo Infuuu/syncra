@@ -5,6 +5,7 @@ const syncRepository = require('../repositories/syncRepository');
 
 const setupWebSocket = (server) => {
   const wss = new WebSocketServer({ server });
+  const HEARTBEAT_INTERVAL_MS = 30000;
 
   const send = (socket, event) => {
     if (socket.readyState !== 1) return;
@@ -52,6 +53,7 @@ const setupWebSocket = (server) => {
         email: payload.email
       };
       socket.subscriptions = new Set();
+      socket.isAlive = true;
     } catch (_error) {
       socket.close(1008, 'invalid_token');
       return;
@@ -60,7 +62,12 @@ const setupWebSocket = (server) => {
     send(socket, {
       type: 'welcome',
       message: 'Connected to Syncra WebSocket server',
-      userId: socket.auth.userId
+      userId: socket.auth.userId,
+      reconnectHint: 'resubscribe_and_catchup'
+    });
+
+    socket.on('pong', () => {
+      socket.isAlive = true;
     });
 
     socket.on('message', async (raw) => {
@@ -162,6 +169,31 @@ const setupWebSocket = (server) => {
 
       send(socket, { type: 'error', error: `unsupported_message_type: ${type}` });
     });
+
+    socket.on('close', () => {
+      if (socket.subscriptions) {
+        socket.subscriptions.clear();
+      }
+    });
+  });
+
+  const heartbeatInterval = setInterval(() => {
+    for (const socket of wss.clients) {
+      if (socket.readyState !== 1) continue;
+
+      if (socket.isAlive === false) {
+        socket.terminate();
+        continue;
+      }
+
+      socket.isAlive = false;
+      socket.ping();
+    }
+  }, HEARTBEAT_INTERVAL_MS);
+  heartbeatInterval.unref();
+
+  wss.on('close', () => {
+    clearInterval(heartbeatInterval);
   });
 
   return { wss, broadcastSyncOperation };
