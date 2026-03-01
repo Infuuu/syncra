@@ -35,7 +35,9 @@ const applySyncOperationsBatch = async ({ operations, applyCanonicalMutation }) 
     await client.query('BEGIN');
     const results = [];
 
+    let failedOperation = null;
     for (const op of operations) {
+      failedOperation = op;
       const { rows } = await client.query(
         `INSERT INTO sync_operations (
            board_id,
@@ -94,12 +96,17 @@ const applySyncOperationsBatch = async ({ operations, applyCanonicalMutation }) 
         }
       }
 
-      throw new Error('failed to insert sync operation');
+      const error = new Error('failed to insert sync operation');
+      error.failedOperation = failedOperation;
+      throw error;
     }
 
     await client.query('COMMIT');
     return results;
   } catch (error) {
+    if (!error.failedOperation && operations.length > 0) {
+      error.failedOperation = operations[0];
+    }
     try {
       await client.query('ROLLBACK');
     } catch (_rollbackError) {

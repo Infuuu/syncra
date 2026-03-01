@@ -110,6 +110,46 @@ Returns operations visible to the caller, strictly after `sinceVersion`.
 }
 ```
 
+## GET /api/sync/failures
+
+Returns unresolved sync failures (dead-letter records) for the authenticated actor.
+
+### Query params
+
+- `boardId` (optional): UUID board scope
+- `limit` (optional): 1..500, default 100
+
+### Response (200)
+
+```json
+{
+  "items": [
+    {
+      "id": 12,
+      "actorUserId": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      "boardId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "clientOperationId": "deviceA-1001",
+      "operationType": "card.updated",
+      "entityType": "card",
+      "entityId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "payload": {
+        "title": "Updated title",
+        "expectedVersion": 1
+      },
+      "statusCode": 409,
+      "lastErrorCode": "SyncApplyConflictError",
+      "lastErrorMessage": "card version conflict",
+      "attemptCount": 2,
+      "firstFailedAt": "2026-03-01T17:00:00.000Z",
+      "lastFailedAt": "2026-03-01T17:00:03.000Z",
+      "resolvedAt": null
+    }
+  ]
+}
+```
+
+When a later `POST /api/sync/push` succeeds with the same `clientOperationId`, the matching unresolved dead-letter record is auto-marked resolved.
+
 ## Supported operations
 
 - `list.created`: payload requires `title`; optional `orderIndex`

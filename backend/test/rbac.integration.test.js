@@ -443,6 +443,47 @@ test('Sync endpoints: push/pull are versioned, idempotent, and role-aware', asyn
     });
   assert.equal(staleUpdateConflictRes2.statusCode, 409);
 
+  const failuresAfterConflictRes = await request(app)
+    .get('/api/sync/failures')
+    .set('Authorization', `Bearer ${editorToken}`);
+  assert.equal(failuresAfterConflictRes.statusCode, 200);
+  const pendingFailure = failuresAfterConflictRes.body.items.find(
+    (item) => item.clientOperationId === 'editor-op-2-stale-metrics'
+  );
+  assert.ok(pendingFailure);
+  assert.ok(pendingFailure.attemptCount >= 1);
+  assert.equal(pendingFailure.statusCode, 409);
+
+  const retryResolvedRes = await request(app)
+    .post('/api/sync/push')
+    .set('Authorization', `Bearer ${editorToken}`)
+    .send({
+      operations: [
+        {
+          clientOperationId: 'editor-op-2-stale-metrics',
+          boardId,
+          operationType: 'card.updated',
+          entityType: 'card',
+          entityId: '22222222-2222-4222-8222-222222222222',
+          payload: {
+            title: 'Retry success',
+            expectedVersion: 2
+          }
+        }
+      ]
+    });
+  assert.equal(retryResolvedRes.statusCode, 201);
+
+  const failuresAfterRetryRes = await request(app)
+    .get('/api/sync/failures')
+    .set('Authorization', `Bearer ${editorToken}`);
+  assert.equal(failuresAfterRetryRes.statusCode, 200);
+  assert.ok(
+    failuresAfterRetryRes.body.items.every(
+      (item) => item.clientOperationId !== 'editor-op-2-stale-metrics'
+    )
+  );
+
   const metricsAfterConflictRes = await request(app).get('/metrics');
   const conflictsAfter = metricsAfterConflictRes.body.counters.syncPushConflictsTotal;
   assert.ok(conflictsAfter >= conflictsBefore + 1);
@@ -506,7 +547,7 @@ test('Sync endpoints: push/pull are versioned, idempotent, and role-aware', asyn
           operationType: 'card.deleted',
           entityType: 'card',
           entityId: '22222222-2222-4222-8222-222222222222',
-          payload: { expectedVersion: 2 }
+          payload: { expectedVersion: 3 }
         }
       ]
     });
