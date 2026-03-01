@@ -22,7 +22,8 @@ const openApiSpec = {
       Error: {
         type: 'object',
         properties: {
-          error: { type: 'string' }
+          error: { type: 'string' },
+          errorCode: { type: 'string' }
         },
         required: ['error']
       }
@@ -67,6 +68,14 @@ const openApiSpec = {
         summary: 'Metrics Prometheus format',
         responses: {
           200: { description: 'Prometheus exposition text' }
+        }
+      }
+    },
+    '/api/capabilities': {
+      get: {
+        summary: 'Backend feature flags and limits for clients',
+        responses: {
+          200: { description: 'Capabilities' }
         }
       }
     },
@@ -189,6 +198,28 @@ const openApiSpec = {
           }
         },
         responses: { 201: { description: 'Created' }, 401: { description: 'Unauthorized' } }
+      }
+    },
+    '/api/boards/{boardId}/notes': {
+      get: {
+        summary: 'List notes for a board',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            in: 'path',
+            name: 'boardId',
+            required: true,
+            schema: { type: 'string', format: 'uuid' }
+          },
+          { in: 'query', name: 'limit', schema: { type: 'integer', minimum: 1, maximum: 500 } },
+          { in: 'query', name: 'offset', schema: { type: 'integer', minimum: 0 } },
+          { in: 'query', name: 'cursor', schema: { type: 'string' } }
+        ],
+        responses: {
+          200: { description: 'Notes list' },
+          403: { description: 'Forbidden' },
+          404: { description: 'Board not found' }
+        }
       }
     },
     '/api/sync/push': {

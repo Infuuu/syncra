@@ -90,6 +90,32 @@ const parseBoardAuditQuery = (query) => {
   return resultOk({ limit });
 };
 
+const parseBoardNotesQuery = (query) => {
+  const limitRaw = Number(query?.limit ?? 100);
+  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 500) : 100;
+
+  const hasCursor = typeof query?.cursor === 'string' && query.cursor.trim().length > 0;
+  const hasOffset = typeof query?.offset !== 'undefined';
+  if (hasCursor && hasOffset) {
+    return resultError('offset cannot be used with cursor');
+  }
+
+  if (hasCursor) {
+    return resultOk({
+      limit,
+      cursor: query.cursor.trim(),
+      offset: null
+    });
+  }
+
+  const offsetRaw = Number(query?.offset ?? 0);
+  if (!Number.isInteger(offsetRaw) || offsetRaw < 0) {
+    return resultError('offset must be a non-negative integer');
+  }
+
+  return resultOk({ limit, offset: offsetRaw, cursor: null });
+};
+
 const parseBoardMemberUpsertBody = (body) => {
   const email = parseEmail(body?.email);
   if (!email.ok) return email;
@@ -234,6 +260,7 @@ module.exports = {
   parseRefreshTokenBody,
   parseBoardCreateBody,
   parseBoardAuditQuery,
+  parseBoardNotesQuery,
   parseBoardMemberUpsertBody,
   parseBoardMemberRolePatchBody,
   parseListCreateBody,

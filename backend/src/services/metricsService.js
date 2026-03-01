@@ -4,12 +4,16 @@ const counters = {
   http4xxTotal: 0,
   http5xxTotal: 0,
   rateLimitExceededTotal: 0,
-  syncPushConflictsTotal: 0
+  syncPushConflictsTotal: 0,
+  syncNoteConflictTotal: 0,
+  syncNoteValidationFailTotal: 0
 };
 
 const labeledCounters = {
   httpRequestsByRouteTotal: new Map(),
-  syncPushErrorsTotal: new Map()
+  syncPushErrorsTotal: new Map(),
+  syncNoteApplyTotal: new Map(),
+  syncNoteApplyByBoardTotal: new Map()
 };
 
 const REQUEST_DURATION_BUCKETS_MS = [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000];

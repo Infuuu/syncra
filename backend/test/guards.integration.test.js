@@ -111,3 +111,17 @@ test('openapi json and docs ui are exposed', async () => {
   assert.ok(docs.headers['content-type'].includes('text/html'));
   assert.ok(docs.text.includes('SwaggerUIBundle'));
 });
+
+test('capabilities endpoint exposes feature flags and limits', async () => {
+  const res = await request(app).get('/api/capabilities');
+  assert.equal(res.statusCode, 200);
+  assert.equal(typeof res.body.features?.notesEnabled, 'boolean');
+  assert.equal(typeof res.body.schemas?.noteDocSchemaVersion, 'number');
+  assert.equal(res.body.errorCodes?.sync?.versionConflict, 'version_conflict');
+  assert.equal(res.body.errorCodes?.notes?.featureDisabled, 'notes_feature_disabled');
+  assert.equal(res.body.errorCodes?.notes?.schemaVersionInvalid, 'note_schema_version_invalid');
+  assert.equal(res.body.errorCodes?.notes?.schemaVersionUnsupported, 'note_schema_version_unsupported');
+  assert.equal(res.body.errorCodes?.notes?.contentInvalid, 'note_content_invalid');
+  assert.equal(typeof res.body.limits?.noteContentMaxBytes, 'number');
+  assert.equal(typeof res.body.limits?.syncBodyMaxBytes, 'number');
+});

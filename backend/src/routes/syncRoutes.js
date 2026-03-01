@@ -8,6 +8,7 @@ const auditLogRepository = require('../repositories/auditLogRepository');
 const { hasRequiredRole } = require('../services/authorizationService');
 const { validateSyncPushOperation } = require('../services/syncValidationService');
 const metricsService = require('../services/metricsService');
+const logger = require('../services/loggerService');
 const {
   SyncApplyError,
   SyncApplyConflictError,
@@ -44,10 +45,50 @@ const normalizeOperationAction = (operationType) => {
   return action;
 };
 
+const maybeRecordNoteApplyMetric = ({ entityType, operationType, status, boardId }) => {
+  if (String(entityType || '').toLowerCase() !== 'note') return;
+  metricsService.incrementLabeledCounter(
+    'syncNoteApplyTotal',
+    { action: normalizeOperationAction(operationType), status },
+    1
+  );
+  if (boardId) {
+    metricsService.incrementLabeledCounter(
+      'syncNoteApplyByBoardTotal',
+      { board_id: boardId, action: normalizeOperationAction(operationType), status },
+      1
+    );
+  }
+};
+
+const toConflictResponseBody = (error) => {
+  const snapshot = error?.snapshot || null;
+  return {
+    error: error.message,
+    errorCode: error?.errorCode || 'version_conflict',
+    entity: snapshot?.entityType || null,
+    entityId: snapshot?.entity?.id || null,
+    reason: 'version_conflict',
+    serverState: snapshot?.entity || null,
+    conflict: {
+      serverSnapshot: snapshot
+    }
+  };
+};
+
+const sendSyncApplyError = (res, error) => {
+  const statusCode = error.statusCode || 400;
+  return res.status(statusCode).json({
+    error: error.message,
+    errorCode: error.errorCode || 'sync_apply_error'
+  });
+};
+
 router.post('/push', async (req, res) => {
   const parsed = parseSyncPushBody(req.body);
   if (!parsed.ok) return badRequest(res, parsed.error);
   const { operations } = parsed.value;
+  let currentOperation = null;
 
   try {
     const roleCache = new Map();
@@ -58,6 +99,7 @@ router.post('/push', async (req, res) => {
         : null;
 
     for (const raw of operations) {
+      currentOperation = raw;
       validateSyncPushOperation(raw);
 
       const board = await boardRepository.getBoardById(raw.boardId);
@@ -112,6 +154,14 @@ router.post('/push', async (req, res) => {
     const results = [];
     for (const inserted of insertedResults) {
       results.push(mapSyncInsertResult(inserted));
+      if (inserted.status === 'applied') {
+        maybeRecordNoteApplyMetric({
+          entityType: inserted.operation.entityType,
+          operationType: inserted.operation.operationType,
+          status: 'ok',
+          boardId: inserted.operation.boardId
+        });
+      }
 
       if (inserted.status === 'applied' && broadcastSyncOperation) {
         try {
@@ -146,7 +196,7 @@ router.post('/push', async (req, res) => {
       latestVersion
     });
   } catch (error) {
-    const failedOperation = error.failedOperation || null;
+    const failedOperation = error.failedOperation || currentOperation || null;
 
     const recordFailureIfPossible = async (statusCode, message) => {
       if (!failedOperation) return;
@@ -159,7 +209,7 @@ router.post('/push', async (req, res) => {
         entityId: failedOperation.entityId || 'unknown',
         payload: failedOperation.payload || {},
         statusCode,
-        errorCode: error.name || null,
+        errorCode: error.errorCode || error.name || null,
         errorMessage: message
       });
     };
@@ -172,12 +222,24 @@ router.post('/push', async (req, res) => {
         { reason: 'conflict', status_code: '409' },
         1
       );
-      return res.status(409).json({
-        error: error.message,
-        conflict: {
-          serverSnapshot: error.snapshot
-        }
+      maybeRecordNoteApplyMetric({
+        entityType: failedOperation?.entityType,
+        operationType: failedOperation?.operationType,
+        status: 'conflict',
+        boardId: failedOperation?.boardId
       });
+      if (String(failedOperation?.entityType || '').toLowerCase() === 'note') {
+        metricsService.incrementCounter('syncNoteConflictTotal', 1);
+        logger.info('sync_note_conflict', {
+          requestId: req.requestId,
+          boardId: failedOperation.boardId || null,
+          entity: 'note',
+          entityId: failedOperation.entityId || null,
+          opType: failedOperation.operationType || null,
+          conflict: true
+        });
+      }
+      return res.status(409).json(toConflictResponseBody(error));
     }
     if (error instanceof SyncApplyError) {
       await recordFailureIfPossible(error.statusCode || 400, error.message);
@@ -186,9 +248,28 @@ router.post('/push', async (req, res) => {
         { reason: 'apply_error', status_code: String(error.statusCode || 400) },
         1
       );
-      if (error.statusCode === 404) return notFound(res, error.message);
-      if (error.statusCode === 403) return forbidden(res, error.message);
-      return badRequest(res, error.message);
+      maybeRecordNoteApplyMetric({
+        entityType: failedOperation?.entityType,
+        operationType: failedOperation?.operationType,
+        status: 'error',
+        boardId: failedOperation?.boardId
+      });
+      if (String(failedOperation?.entityType || '').toLowerCase() === 'note') {
+        if ((error.statusCode || 400) === 400) {
+          metricsService.incrementCounter('syncNoteValidationFailTotal', 1);
+        }
+        logger.info('sync_note_apply_error', {
+          requestId: req.requestId,
+          boardId: failedOperation.boardId || null,
+          entity: 'note',
+          entityId: failedOperation.entityId || null,
+          opType: failedOperation.operationType || null,
+          conflict: false,
+          statusCode: error.statusCode || 400,
+          message: error.message
+        });
+      }
+      return sendSyncApplyError(res, error);
     }
     await recordFailureIfPossible(500, error.message || 'internal_server_error');
     metricsService.incrementLabeledCounter(
@@ -233,9 +314,10 @@ router.post('/failures/:failureId/retry', async (req, res) => {
   const parsed = parseSyncRetryParams(req.params);
   if (!parsed.ok) return badRequest(res, parsed.error);
   const { failureId } = parsed.value;
+  let failure = null;
 
   try {
-    const failure = await syncFailureRepository.getOpenFailureByIdForActor({
+    failure = await syncFailureRepository.getOpenFailureByIdForActor({
       actorUserId: req.auth.userId,
       failureId
     });
@@ -287,6 +369,14 @@ router.post('/failures/:failureId/retry', async (req, res) => {
     });
 
     const result = mapSyncInsertResult(inserted);
+    if (inserted.status === 'applied') {
+      maybeRecordNoteApplyMetric({
+        entityType: inserted.operation.entityType,
+        operationType: inserted.operation.operationType,
+        status: 'ok',
+        boardId: inserted.operation.boardId
+      });
+    }
 
     const broadcastSyncOperation =
       typeof req.app?.locals?.broadcastSyncOperation === 'function'
@@ -340,12 +430,24 @@ router.post('/failures/:failureId/retry', async (req, res) => {
         { reason: 'conflict', status_code: '409' },
         1
       );
-      return res.status(409).json({
-        error: error.message,
-        conflict: {
-          serverSnapshot: error.snapshot
-        }
-      });
+      if (String(failure?.entityType || '').toLowerCase() === 'note') {
+        maybeRecordNoteApplyMetric({
+          entityType: failure.entityType,
+          operationType: failure.operationType,
+          status: 'conflict',
+          boardId: failure.boardId
+        });
+        metricsService.incrementCounter('syncNoteConflictTotal', 1);
+        logger.info('sync_note_conflict', {
+          requestId: req.requestId,
+          boardId: failure.boardId || null,
+          entity: 'note',
+          entityId: failure.entityId || null,
+          opType: failure.operationType || null,
+          conflict: true
+        });
+      }
+      return res.status(409).json(toConflictResponseBody(error));
     }
 
     if (error instanceof SyncApplyError) {
@@ -353,7 +455,7 @@ router.post('/failures/:failureId/retry', async (req, res) => {
         actorUserId: req.auth.userId,
         failureId,
         statusCode: error.statusCode || 400,
-        errorCode: error.name,
+        errorCode: error.errorCode || error.name,
         errorMessage: error.message
       });
       metricsService.incrementLabeledCounter(
@@ -361,9 +463,28 @@ router.post('/failures/:failureId/retry', async (req, res) => {
         { reason: 'apply_error', status_code: String(error.statusCode || 400) },
         1
       );
-      if (error.statusCode === 404) return notFound(res, error.message);
-      if (error.statusCode === 403) return forbidden(res, error.message);
-      return badRequest(res, error.message);
+      if (String(failure?.entityType || '').toLowerCase() === 'note') {
+        maybeRecordNoteApplyMetric({
+          entityType: failure.entityType,
+          operationType: failure.operationType,
+          status: 'error',
+          boardId: failure.boardId
+        });
+        if ((error.statusCode || 400) === 400) {
+          metricsService.incrementCounter('syncNoteValidationFailTotal', 1);
+        }
+        logger.info('sync_note_apply_error', {
+          requestId: req.requestId,
+          boardId: failure.boardId || null,
+          entity: 'note',
+          entityId: failure.entityId || null,
+          opType: failure.operationType || null,
+          conflict: false,
+          statusCode: error.statusCode || 400,
+          message: error.message
+        });
+      }
+      return sendSyncApplyError(res, error);
     }
 
     await syncFailureRepository.markRetryFailureAttempt({

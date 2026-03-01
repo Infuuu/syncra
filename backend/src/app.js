@@ -5,6 +5,7 @@ const env = require('./config/env');
 const healthRoutes = require('./routes/healthRoutes');
 const metricsRoutes = require('./routes/metricsRoutes');
 const docsRoutes = require('./routes/docsRoutes');
+const capabilitiesRoutes = require('./routes/capabilitiesRoutes');
 const authRoutes = require('./routes/authRoutes');
 const boardRoutes = require('./routes/boardRoutes');
 const boardMemberRoutes = require('./routes/boardMemberRoutes');
@@ -46,6 +47,7 @@ app.get('/', (_req, res) => {
 app.use('/health', healthRoutes);
 app.use('/metrics', metricsRoutes);
 app.use('/', docsRoutes);
+app.use('/api/capabilities', capabilitiesRoutes);
 app.use('/api/auth', authRateLimiter, authRoutes);
 app.use('/api/boards', requireAuth, boardRoutes);
 app.use('/api/boards/:boardId/members', requireAuth, boardMemberRoutes);

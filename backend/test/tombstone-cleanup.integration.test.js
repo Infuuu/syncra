@@ -9,7 +9,7 @@ const { cleanupExpiredTombstones } = require('../src/services/tombstoneCleanupSe
 const uniqueEmail = (prefix) => `${prefix}.${Date.now()}.${Math.floor(Math.random() * 100000)}@example.com`;
 
 const clearDb = async () => {
-  await pool.query('TRUNCATE TABLE board_sync_state, sync_operations, board_members, cards, lists, boards, users CASCADE');
+  await pool.query('TRUNCATE TABLE board_sync_state, sync_operations, board_members, notes, cards, lists, boards, users CASCADE');
 };
 
 const registerAndGetToken = async (email, displayName) => {
@@ -65,6 +65,30 @@ test('cleanupExpiredTombstones hard-deletes expired tombstones', async () => {
   assert.equal(cardRes.statusCode, 201);
   const cardId = cardRes.body.id;
 
+  const noteId = '99999999-9999-4999-8999-999999999999';
+  const noteCreateRes = await request(app)
+    .post('/api/sync/push')
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({
+      operations: [
+        {
+          clientOperationId: 'cleanup-op-note-create',
+          boardId,
+          operationType: 'note.created',
+          entityType: 'note',
+          entityId: noteId,
+          payload: {
+            title: 'Cleanup Note',
+            content: {
+              type: 'doc',
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: 'cleanup' }] }]
+            }
+          }
+        }
+      ]
+    });
+  assert.equal(noteCreateRes.statusCode, 201);
+
   const deleteCardRes = await request(app)
     .post('/api/sync/push')
     .set('Authorization', `Bearer ${ownerToken}`)
@@ -99,6 +123,23 @@ test('cleanupExpiredTombstones hard-deletes expired tombstones', async () => {
     });
   assert.equal(deleteListRes.statusCode, 201);
 
+  const deleteNoteRes = await request(app)
+    .post('/api/sync/push')
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({
+      operations: [
+        {
+          clientOperationId: 'cleanup-op-note-del',
+          boardId,
+          operationType: 'note.deleted',
+          entityType: 'note',
+          entityId: noteId,
+          payload: { expectedVersion: 1 }
+        }
+      ]
+    });
+  assert.equal(deleteNoteRes.statusCode, 201);
+
   const deleteBoardRes = await request(app)
     .post('/api/sync/push')
     .set('Authorization', `Bearer ${ownerToken}`)
@@ -127,6 +168,11 @@ test('cleanupExpiredTombstones hard-deletes expired tombstones', async () => {
   );
 
   await pool.query(
+    "UPDATE notes SET deleted_at = now() - INTERVAL '45 days' WHERE id = $1::uuid",
+    [noteId]
+  );
+
+  await pool.query(
     "UPDATE boards SET deleted_at = now() - INTERVAL '45 days' WHERE id = $1::uuid",
     [boardId]
   );
@@ -134,16 +180,19 @@ test('cleanupExpiredTombstones hard-deletes expired tombstones', async () => {
   const cleanupResult = await cleanupExpiredTombstones({ retentionDays: 30 });
   assert.equal(cleanupResult.dryRun, false);
   assert.ok(cleanupResult.deleted.cards >= 1);
+  assert.ok(cleanupResult.deleted.notes >= 1);
   assert.ok(cleanupResult.deleted.lists >= 1);
   assert.ok(cleanupResult.deleted.boards >= 1);
 
   const boardCheck = await pool.query('SELECT 1 FROM boards WHERE id = $1::uuid', [boardId]);
   const listCheck = await pool.query('SELECT 1 FROM lists WHERE id = $1::uuid', [listId]);
   const cardCheck = await pool.query('SELECT 1 FROM cards WHERE id = $1::uuid', [cardId]);
+  const noteCheck = await pool.query('SELECT 1 FROM notes WHERE id = $1::uuid', [noteId]);
 
   assert.equal(boardCheck.rowCount, 0);
   assert.equal(listCheck.rowCount, 0);
   assert.equal(cardCheck.rowCount, 0);
+  assert.equal(noteCheck.rowCount, 0);
 });
 
 test('cleanupExpiredTombstones dry-run does not delete data', async () => {

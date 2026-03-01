@@ -1,14 +1,17 @@
+const env = require('../config/env');
+
 class SyncApplyError extends Error {
-  constructor(message, statusCode = 400) {
+  constructor(message, statusCode = 400, errorCode = null) {
     super(message);
     this.name = 'SyncApplyError';
     this.statusCode = statusCode;
+    this.errorCode = errorCode;
   }
 }
 
 class SyncApplyConflictError extends SyncApplyError {
-  constructor(message, snapshot) {
-    super(message, 409);
+  constructor(message, snapshot, errorCode = 'version_conflict') {
+    super(message, 409, errorCode);
     this.name = 'SyncApplyConflictError';
     this.snapshot = snapshot;
   }
@@ -111,6 +114,31 @@ const getCardSnapshot = async (client, boardId, cardId) => {
   };
 };
 
+const getNoteSnapshot = async (client, boardId, noteId) => {
+  const { rows } = await client.query(
+    `SELECT id, board_id, created_by, title, content, version, is_deleted, deleted_at, created_at, updated_at
+     FROM notes
+     WHERE id = $1::uuid AND board_id = $2::uuid`,
+    [noteId, boardId]
+  );
+  if (!rows[0]) return null;
+  return {
+    entityType: 'note',
+    entity: {
+      id: rows[0].id,
+      boardId: rows[0].board_id,
+      createdBy: rows[0].created_by,
+      title: rows[0].title,
+      content: rows[0].content,
+      version: Number(rows[0].version),
+      isDeleted: rows[0].is_deleted,
+      deletedAt: rows[0].deleted_at,
+      createdAt: rows[0].created_at,
+      updatedAt: rows[0].updated_at
+    }
+  };
+};
+
 const applyBoardOperation = async (client, operation) => {
   const action = normalizeAction(operation.operationType);
   const boardId = operation.boardId;
@@ -165,6 +193,12 @@ const applyBoardOperation = async (client, operation) => {
     );
     await client.query(
       `UPDATE cards
+       SET is_deleted = TRUE, deleted_at = now(), version = version + 1, updated_at = now()
+       WHERE board_id = $1 AND is_deleted = FALSE`,
+      [boardId]
+    );
+    await client.query(
+      `UPDATE notes
        SET is_deleted = TRUE, deleted_at = now(), version = version + 1, updated_at = now()
        WHERE board_id = $1 AND is_deleted = FALSE`,
       [boardId]
@@ -392,12 +426,91 @@ const applyCardOperation = async (client, operation) => {
   throw new SyncApplyError(`unsupported card operation action: ${action}`, 400);
 };
 
+const applyNoteOperation = async (client, operation) => {
+  const action = normalizeAction(operation.operationType);
+  const boardId = operation.boardId;
+  const noteId = operation.entityId;
+  const payload = operation.payload || {};
+
+  if (action === 'created') {
+    const boardCheck = await client.query(
+      'SELECT 1 FROM boards WHERE id = $1::uuid AND is_deleted = FALSE LIMIT 1',
+      [boardId]
+    );
+    if (boardCheck.rowCount === 0) {
+      throw new SyncApplyError('board not found', 404);
+    }
+
+    const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+    const content = payload.content;
+
+    try {
+      await client.query(
+        `INSERT INTO notes (id, board_id, created_by, title, content, updated_at)
+         VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::jsonb, now())`,
+        [noteId, boardId, operation.actorUserId, title, JSON.stringify(content)]
+      );
+    } catch (error) {
+      if (error && error.code === '23505') {
+        const snapshot = await getNoteSnapshot(client, boardId, noteId);
+        throw new SyncApplyConflictError('note already exists', snapshot);
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if (action === 'updated') {
+    const expectedVersion = parseExpectedVersion(payload, 'note update');
+    const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+
+    const { rowCount } = await client.query(
+      `UPDATE notes
+       SET title = $3, content = $4::jsonb, version = version + 1, updated_at = now()
+       WHERE id = $1::uuid AND board_id = $2::uuid AND version = $5 AND is_deleted = FALSE`,
+      [noteId, boardId, title, JSON.stringify(payload.content), expectedVersion]
+    );
+
+    if (rowCount === 0) {
+      const snapshot = await getNoteSnapshot(client, boardId, noteId);
+      if (!snapshot) throw new SyncApplyError('note not found', 404);
+      throw new SyncApplyConflictError('note version conflict', snapshot);
+    }
+    return;
+  }
+
+  if (action === 'deleted') {
+    const expectedVersion = parseExpectedVersion(payload, 'note delete');
+    const { rowCount } = await client.query(
+      `UPDATE notes
+       SET is_deleted = TRUE, deleted_at = now(), version = version + 1, updated_at = now()
+       WHERE id = $1::uuid AND board_id = $2::uuid AND version = $3 AND is_deleted = FALSE`,
+      [noteId, boardId, expectedVersion]
+    );
+
+    if (rowCount === 0) {
+      const snapshot = await getNoteSnapshot(client, boardId, noteId);
+      if (!snapshot) throw new SyncApplyError('note not found', 404);
+      throw new SyncApplyConflictError('note version conflict', snapshot);
+    }
+    return;
+  }
+
+  throw new SyncApplyError(`unsupported note operation action: ${action}`, 400);
+};
+
 const applySyncOperationToCanonicalTables = async (client, operation) => {
   const entityType = String(operation.entityType || '').trim().toLowerCase();
 
   if (entityType === 'board') return applyBoardOperation(client, operation);
   if (entityType === 'list') return applyListOperation(client, operation);
   if (entityType === 'card') return applyCardOperation(client, operation);
+  if (entityType === 'note') {
+    if (!env.notesEnabled) {
+      throw new SyncApplyError('notes feature is disabled', 400);
+    }
+    return applyNoteOperation(client, operation);
+  }
 
   throw new SyncApplyError(`unsupported entityType: ${operation.entityType}`, 400);
 };

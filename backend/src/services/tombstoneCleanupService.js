@@ -30,6 +30,15 @@ const cleanupExpiredTombstones = async ({ retentionDays, now = new Date(), dryRu
       [cutoffDate]
     );
 
+    const noteEligible = await client.query(
+      `SELECT COUNT(*)::int AS count
+       FROM notes
+       WHERE is_deleted = TRUE
+         AND deleted_at IS NOT NULL
+         AND deleted_at < $1`,
+      [cutoffDate]
+    );
+
     const listEligible = await client.query(
       `SELECT COUNT(*)::int AS count
        FROM lists l
@@ -47,12 +56,14 @@ const cleanupExpiredTombstones = async ({ retentionDays, now = new Date(), dryRu
          AND b.deleted_at IS NOT NULL
          AND b.deleted_at < $1
          AND NOT EXISTS (SELECT 1 FROM lists l WHERE l.board_id = b.id)
-         AND NOT EXISTS (SELECT 1 FROM cards c WHERE c.board_id = b.id)`,
+         AND NOT EXISTS (SELECT 1 FROM cards c WHERE c.board_id = b.id)
+         AND NOT EXISTS (SELECT 1 FROM notes n WHERE n.board_id = b.id)`,
       [cutoffDate]
     );
 
     const eligible = {
       cards: cardEligible.rows[0].count,
+      notes: noteEligible.rows[0].count,
       lists: listEligible.rows[0].count,
       boards: boardEligible.rows[0].count
     };
@@ -66,6 +77,7 @@ const cleanupExpiredTombstones = async ({ retentionDays, now = new Date(), dryRu
         eligible,
         deleted: {
           cards: 0,
+          notes: 0,
           lists: 0,
           boards: 0
         }
@@ -74,6 +86,14 @@ const cleanupExpiredTombstones = async ({ retentionDays, now = new Date(), dryRu
 
     const deleteCards = await client.query(
       `DELETE FROM cards
+       WHERE is_deleted = TRUE
+         AND deleted_at IS NOT NULL
+         AND deleted_at < $1`,
+      [cutoffDate]
+    );
+
+    const deleteNotes = await client.query(
+      `DELETE FROM notes
        WHERE is_deleted = TRUE
          AND deleted_at IS NOT NULL
          AND deleted_at < $1`,
@@ -95,7 +115,8 @@ const cleanupExpiredTombstones = async ({ retentionDays, now = new Date(), dryRu
          AND b.deleted_at IS NOT NULL
          AND b.deleted_at < $1
          AND NOT EXISTS (SELECT 1 FROM lists l WHERE l.board_id = b.id)
-         AND NOT EXISTS (SELECT 1 FROM cards c WHERE c.board_id = b.id)`,
+         AND NOT EXISTS (SELECT 1 FROM cards c WHERE c.board_id = b.id)
+         AND NOT EXISTS (SELECT 1 FROM notes n WHERE n.board_id = b.id)`,
       [cutoffDate]
     );
 
@@ -108,6 +129,7 @@ const cleanupExpiredTombstones = async ({ retentionDays, now = new Date(), dryRu
       eligible,
       deleted: {
         cards: deleteCards.rowCount,
+        notes: deleteNotes.rowCount,
         lists: deleteLists.rowCount,
         boards: deleteBoards.rowCount
       }

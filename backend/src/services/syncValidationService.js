@@ -1,4 +1,5 @@
 const { SyncApplyError } = require('./syncApplyService');
+const env = require('../config/env');
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -46,6 +47,49 @@ const requireExpectedVersionForMutations = (payload, action) => {
         400
       );
     }
+  }
+};
+
+const requireWithinByteLimit = (payload, fieldName, maxBytes) => {
+  const value = payload?.[fieldName];
+  const bytes = Buffer.byteLength(JSON.stringify(value || {}), 'utf8');
+  if (bytes > maxBytes) {
+    throw new SyncApplyError(`payload.${fieldName} exceeds max size of ${maxBytes} bytes`, 400);
+  }
+};
+
+const normalizeNoteSchemaVersion = (payload) => {
+  if (typeof payload?.schemaVersion === 'undefined') {
+    return env.noteDocSchemaVersion;
+  }
+
+  const parsed = Number(payload.schemaVersion);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new SyncApplyError(
+      'payload.schemaVersion must be a positive integer when provided',
+      400,
+      'note_schema_version_invalid'
+    );
+  }
+  return parsed;
+};
+
+const validateRichTextContent = (payload, fieldName) => {
+  const value = payload?.[fieldName];
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new SyncApplyError(`payload.${fieldName} must be an object`, 400, 'note_content_invalid');
+  }
+
+  if (value.type !== 'doc') {
+    throw new SyncApplyError(`payload.${fieldName}.type must be "doc"`, 400, 'note_content_invalid');
+  }
+
+  if (!Array.isArray(value.content)) {
+    throw new SyncApplyError(
+      `payload.${fieldName}.content must be an array`,
+      400,
+      'note_content_invalid'
+    );
   }
 };
 
@@ -119,6 +163,37 @@ const validateOperationByEntity = ({ entityType, action, payload, operationType 
     return;
   }
 
+  if (entityType === 'note') {
+    if (!env.notesEnabled) {
+      throw new SyncApplyError('notes feature is disabled', 400, 'notes_feature_disabled');
+    }
+
+    if (!['created', 'updated', 'deleted'].includes(action)) {
+      throw new SyncApplyError(`unsupported note operation action: ${action}`, 400);
+    }
+
+    if (action === 'created' || action === 'updated') {
+      if (typeof payload?.title !== 'string') {
+        throw new SyncApplyError('payload.title is required and must be a string', 400);
+      }
+
+      const schemaVersion = normalizeNoteSchemaVersion(payload);
+      if (schemaVersion !== env.noteDocSchemaVersion) {
+        throw new SyncApplyError(
+          `payload.schemaVersion ${schemaVersion} is not supported; expected ${env.noteDocSchemaVersion}`,
+          400,
+          'note_schema_version_unsupported'
+        );
+      }
+
+      validateRichTextContent(payload, 'content');
+      requireWithinByteLimit(payload, 'content', env.noteContentMaxBytes);
+    }
+
+    requireExpectedVersionForMutations(payload, action);
+    return;
+  }
+
   throw new SyncApplyError(`unsupported entityType: ${entityType}`, 400);
 };
 
@@ -129,7 +204,7 @@ const validateSyncPushOperation = (operation) => {
   const action = toAction(operation.operationType);
   const payload = operation.payload && typeof operation.payload === 'object' ? operation.payload : {};
 
-  if (!['board', 'list', 'card'].includes(entityType)) {
+  if (!['board', 'list', 'card', 'note'].includes(entityType)) {
     throw new SyncApplyError(`unsupported entityType: ${operation.entityType}`, 400);
   }
 
@@ -137,7 +212,7 @@ const validateSyncPushOperation = (operation) => {
     throw new SyncApplyError(`unsupported operationType: ${operation.operationType}`, 400);
   }
 
-  if (entityType === 'board' || entityType === 'list' || entityType === 'card') {
+  if (entityType === 'board' || entityType === 'list' || entityType === 'card' || entityType === 'note') {
     requireUuid(operation.entityId, 'entityId');
   }
 

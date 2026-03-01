@@ -208,9 +208,19 @@ Supported operation actions: `created`, `updated`, `moved`, `deleted` for `list`
 - Request size guards are enabled:
   - global JSON parser size limit (`JSON_BODY_LIMIT`)
   - additional sync payload byte cap (`SYNC_BODY_MAX_BYTES`)
+- Notes module controls:
+  - capability endpoint: `GET /api/capabilities` (client-safe feature/limit discovery)
+  - feature flag: `NOTES_ENABLED`
+  - note doc schema version: `NOTE_DOC_SCHEMA_VERSION` (surfaced via capabilities)
+  - note content payload cap: `NOTE_CONTENT_MAX_BYTES`
+  - capability endpoint also returns a stable `errorCodes` map for client-side branching
+  - board notes listing supports offset pagination or cursor pagination (`cursor` + `nextCursor`)
+  - note sync payload schema enforces `payload.content.type === "doc"` and array `payload.content.content`
+  - optional `payload.schemaVersion` on `note.created`/`note.updated` must match capabilities schema version
+  - sync validation/conflict errors return machine-readable `errorCode` alongside `error`
 - Structured JSON logs are emitted for each request with requestId, method, path, statusCode, durationMs, userId, and ip.
 - `syncPushConflictsTotal` metric is tracked and exposed via `/metrics`.
-- Metrics now include route-labeled request counters, route-labeled request-duration histograms, and sync push error counters by reason/status.
+- Metrics now include route-labeled request counters, route-labeled request-duration histograms, sync push error counters by reason/status, and note sync apply counters (including board-labeled note apply metrics).
 - Docker runtime is provided via `/Users/sharadsingh/Downloads/Resume Projects/syncra/docker-compose.yml` and `/Users/sharadsingh/Downloads/Resume Projects/syncra/backend/Dockerfile`.
 - Maintenance cleanup retention knobs:
   - `REFRESH_TOKEN_CLEANUP_RETENTION_DAYS`

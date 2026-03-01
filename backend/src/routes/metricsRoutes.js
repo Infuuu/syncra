@@ -48,7 +48,13 @@ router.get('/prometheus', (_req, res) => {
     `syncra_rate_limit_exceeded_total ${counters.rateLimitExceededTotal}`,
     '# HELP syncra_sync_push_conflicts_total Total sync push conflicts (409).',
     '# TYPE syncra_sync_push_conflicts_total counter',
-    `syncra_sync_push_conflicts_total ${counters.syncPushConflictsTotal}`
+    `syncra_sync_push_conflicts_total ${counters.syncPushConflictsTotal}`,
+    '# HELP syncra_sync_note_conflict_total Total note sync conflicts.',
+    '# TYPE syncra_sync_note_conflict_total counter',
+    `syncra_sync_note_conflict_total ${counters.syncNoteConflictTotal}`,
+    '# HELP syncra_sync_note_validation_fail_total Total note sync validation failures.',
+    '# TYPE syncra_sync_note_validation_fail_total counter',
+    `syncra_sync_note_validation_fail_total ${counters.syncNoteValidationFailTotal}`
   ];
 
   lines.push('# HELP syncra_http_requests_by_route_total Total HTTP requests by route labels.');
@@ -63,6 +69,20 @@ router.get('/prometheus', (_req, res) => {
   for (const row of labeledCounters.syncPushErrorsTotal || []) {
     const labelString = toLabelString(row.labels);
     lines.push(`syncra_sync_push_errors_total{${labelString}} ${row.value}`);
+  }
+
+  lines.push('# HELP syncra_sync_note_apply_total Total note sync apply attempts by action/status.');
+  lines.push('# TYPE syncra_sync_note_apply_total counter');
+  for (const row of labeledCounters.syncNoteApplyTotal || []) {
+    const labelString = toLabelString(row.labels);
+    lines.push(`syncra_sync_note_apply_total{${labelString}} ${row.value}`);
+  }
+
+  lines.push('# HELP syncra_sync_note_apply_by_board_total Total note sync apply attempts by board/action/status.');
+  lines.push('# TYPE syncra_sync_note_apply_by_board_total counter');
+  for (const row of labeledCounters.syncNoteApplyByBoardTotal || []) {
+    const labelString = toLabelString(row.labels);
+    lines.push(`syncra_sync_note_apply_by_board_total{${labelString}} ${row.value}`);
   }
 
   lines.push('# HELP syncra_http_request_duration_ms HTTP request duration in milliseconds by route labels.');

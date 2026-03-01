@@ -14,6 +14,15 @@ Every HTTP response includes:
 x-request-id: <uuid>
 ```
 
+## Capabilities
+
+`GET /api/capabilities` exposes server-driven feature/limit/schema negotiation for clients.
+For notes clients, consume:
+- `features.notesEnabled`
+- `schemas.noteDocSchemaVersion`
+- `errorCodes` (stable machine-readable codes for sync/note errors)
+- `limits.noteContentMaxBytes`
+
 ## POST /api/sync/push
 
 Pushes client operations. Each operation is validated, authorized, logged, and applied to canonical tables in one transaction.
@@ -65,6 +74,7 @@ Route is rate-limited and payload-size limited server-side.
 ```json
 {
   "error": "card version conflict",
+  "errorCode": "version_conflict",
   "conflict": {
     "serverSnapshot": {
       "entityType": "card",
@@ -76,6 +86,16 @@ Route is rate-limited and payload-size limited server-side.
   }
 }
 ```
+
+For sync apply failures (`4xx` from `/api/sync/push` and retry endpoint), responses include:
+- `error` (human-readable)
+- `errorCode` (machine-readable, stable for client branching)
+
+Example note-related codes:
+- `notes_feature_disabled`
+- `note_schema_version_invalid`
+- `note_schema_version_unsupported`
+- `note_content_invalid`
 
 ## GET /api/sync/pull
 
@@ -182,6 +202,9 @@ If the retry succeeds, the failure is marked resolved. If retry fails again, `at
 - `card.created`: payload requires `listId`, `title`; optional `description`, `orderIndex`
 - `card.updated` or `card.moved`: payload requires `expectedVersion` and at least one of `title`, `description`, `orderIndex`, `listId`
 - `card.deleted`: payload requires `expectedVersion`
+- `note.created`: payload requires `title`, `content` (JSON object)
+- `note.updated`: payload requires `expectedVersion`, `title`, `content` (JSON object)
+- `note.deleted`: payload requires `expectedVersion`
 - `board.updated`: payload requires `name`, `expectedVersion`
 - `board.deleted`: payload requires `expectedVersion`
 
@@ -190,6 +213,17 @@ Delete actions are implemented as tombstones in canonical tables (`is_deleted=tr
 Server tracks per-board latest operation cursor in `board_sync_state` to optimize pull/catch-up latest version resolution.
 Sync conflict count is exposed via `/metrics` in `counters.syncPushConflictsTotal`.
 Expired tombstones can be hard-pruned via `npm run job:cleanup:tombstones` (supports `--dry-run`).
+
+### Note content schema (v1)
+
+For `note.created` and `note.updated`, `payload.content` must satisfy:
+- object
+- `type` exactly `"doc"`
+- `content` must be an array
+
+Server rejects malformed note docs with `400`.
+`payload.schemaVersion` is optional; if omitted, server assumes current schema version.
+If provided, it must match `GET /api/capabilities -> schemas.noteDocSchemaVersion`; mismatches are rejected with `400`.
 
 ## WebSocket board channels
 

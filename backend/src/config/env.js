@@ -7,6 +7,16 @@ const toNumber = (value, fallback) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const toBoolean = (value, fallback) => {
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+};
+
 module.exports = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: toNumber(process.env.PORT, 4000),
@@ -20,6 +30,9 @@ module.exports = {
   syncRateWindowMs: toNumber(process.env.SYNC_RATE_WINDOW_MS, 60 * 1000),
   syncRateMaxRequests: toNumber(process.env.SYNC_RATE_MAX_REQUESTS, 120),
   syncBodyMaxBytes: toNumber(process.env.SYNC_BODY_MAX_BYTES, 256 * 1024),
+  notesEnabled: toBoolean(process.env.NOTES_ENABLED, true),
+  noteDocSchemaVersion: toNumber(process.env.NOTE_DOC_SCHEMA_VERSION, 1),
+  noteContentMaxBytes: toNumber(process.env.NOTE_CONTENT_MAX_BYTES, 128 * 1024),
   tombstoneRetentionDays: toNumber(process.env.TOMBSTONE_RETENTION_DAYS, 30),
   refreshTokenCleanupRetentionDays: toNumber(process.env.REFRESH_TOKEN_CLEANUP_RETENTION_DAYS, 30),
   syncFailureRetentionDays: toNumber(process.env.SYNC_FAILURE_RETENTION_DAYS, 30),
