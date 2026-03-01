@@ -99,3 +99,15 @@ test('health live and ready endpoints are exposed', async () => {
   assert.ok(ready.statusCode === 200 || ready.statusCode === 500);
   assert.equal(typeof ready.body.ok, 'boolean');
 });
+
+test('openapi json and docs ui are exposed', async () => {
+  const openapi = await request(app).get('/openapi.json');
+  assert.equal(openapi.statusCode, 200);
+  assert.equal(openapi.body.openapi, '3.0.3');
+  assert.ok(typeof openapi.body.info?.title === 'string');
+
+  const docs = await request(app).get('/docs');
+  assert.equal(docs.statusCode, 200);
+  assert.ok(docs.headers['content-type'].includes('text/html'));
+  assert.ok(docs.text.includes('SwaggerUIBundle'));
+});

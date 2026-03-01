@@ -35,6 +35,8 @@ This starts:
 - `GET /health/live` liveness probe
 - `GET /health/ready` readiness probe (includes DB check)
 - `GET /health` compatibility health endpoint (includes DB check)
+- `GET /openapi.json` OpenAPI 3.0 API contract
+- `GET /docs` Swagger UI for interactive API exploration
 - `GET /metrics` backend uptime + in-memory counters
 - `GET /metrics/prometheus` Prometheus text exposition format
 - `POST /api/auth/register` create user + access/refresh token pair
@@ -71,6 +73,10 @@ Every response includes:
 ```text
 x-request-id: <uuid>
 ```
+
+API docs:
+- OpenAPI JSON: `http://localhost:4000/openapi.json`
+- Swagger UI: `http://localhost:4000/docs`
 
 ## Tests
 
