@@ -192,6 +192,7 @@ Supported operation actions: `created`, `updated`, `moved`, `deleted` for `list`
   - additional sync payload byte cap (`SYNC_BODY_MAX_BYTES`)
 - Structured JSON logs are emitted for each request with requestId, method, path, statusCode, durationMs, userId, and ip.
 - `syncPushConflictsTotal` metric is tracked and exposed via `/metrics`.
+- Metrics now include route-labeled request counters, route-labeled request-duration histograms, and sync push error counters by reason/status.
 - Docker runtime is provided via `/Users/sharadsingh/Downloads/Resume Projects/syncra/docker-compose.yml` and `/Users/sharadsingh/Downloads/Resume Projects/syncra/backend/Dockerfile`.
 
 ## Next Steps

@@ -64,6 +64,8 @@ test('metrics endpoint exposes counters snapshot', async () => {
   assert.ok(typeof res.body.uptimeSeconds === 'number');
   assert.ok(typeof res.body.counters.httpRequestsTotal === 'number');
   assert.ok(typeof res.body.counters.syncPushConflictsTotal === 'number');
+  assert.ok(Array.isArray(res.body.labeledCounters.httpRequestsByRouteTotal));
+  assert.ok(Array.isArray(res.body.histograms.httpRequestDurationMsByRoute));
 });
 
 test('prometheus metrics endpoint exposes text format counters', async () => {
@@ -73,6 +75,9 @@ test('prometheus metrics endpoint exposes text format counters', async () => {
   assert.ok(res.text.includes('syncra_uptime_seconds'));
   assert.ok(res.text.includes('syncra_http_requests_total'));
   assert.ok(res.text.includes('syncra_sync_push_conflicts_total'));
+  assert.ok(res.text.includes('syncra_http_requests_by_route_total'));
+  assert.ok(res.text.includes('syncra_http_request_duration_ms_bucket'));
+  assert.ok(res.text.includes('syncra_sync_push_errors_total'));
 });
 
 test('auth register validates email format', async () => {

@@ -167,6 +167,11 @@ router.post('/push', async (req, res) => {
     if (error instanceof SyncApplyConflictError) {
       await recordFailureIfPossible(409, error.message);
       metricsService.incrementCounter('syncPushConflictsTotal', 1);
+      metricsService.incrementLabeledCounter(
+        'syncPushErrorsTotal',
+        { reason: 'conflict', status_code: '409' },
+        1
+      );
       return res.status(409).json({
         error: error.message,
         conflict: {
@@ -176,11 +181,21 @@ router.post('/push', async (req, res) => {
     }
     if (error instanceof SyncApplyError) {
       await recordFailureIfPossible(error.statusCode || 400, error.message);
+      metricsService.incrementLabeledCounter(
+        'syncPushErrorsTotal',
+        { reason: 'apply_error', status_code: String(error.statusCode || 400) },
+        1
+      );
       if (error.statusCode === 404) return notFound(res, error.message);
       if (error.statusCode === 403) return forbidden(res, error.message);
       return badRequest(res, error.message);
     }
     await recordFailureIfPossible(500, error.message || 'internal_server_error');
+    metricsService.incrementLabeledCounter(
+      'syncPushErrorsTotal',
+      { reason: 'internal_error', status_code: '500' },
+      1
+    );
     return serverError(res, error.message);
   }
 });
@@ -320,6 +335,11 @@ router.post('/failures/:failureId/retry', async (req, res) => {
         errorMessage: error.message
       });
       metricsService.incrementCounter('syncPushConflictsTotal', 1);
+      metricsService.incrementLabeledCounter(
+        'syncPushErrorsTotal',
+        { reason: 'conflict', status_code: '409' },
+        1
+      );
       return res.status(409).json({
         error: error.message,
         conflict: {
@@ -336,6 +356,11 @@ router.post('/failures/:failureId/retry', async (req, res) => {
         errorCode: error.name,
         errorMessage: error.message
       });
+      metricsService.incrementLabeledCounter(
+        'syncPushErrorsTotal',
+        { reason: 'apply_error', status_code: String(error.statusCode || 400) },
+        1
+      );
       if (error.statusCode === 404) return notFound(res, error.message);
       if (error.statusCode === 403) return forbidden(res, error.message);
       return badRequest(res, error.message);
@@ -348,6 +373,11 @@ router.post('/failures/:failureId/retry', async (req, res) => {
       errorCode: error.name || null,
       errorMessage: error.message || 'internal_server_error'
     });
+    metricsService.incrementLabeledCounter(
+      'syncPushErrorsTotal',
+      { reason: 'internal_error', status_code: '500' },
+      1
+    );
     return serverError(res, error.message);
   }
 });

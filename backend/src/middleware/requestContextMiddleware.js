@@ -20,7 +20,16 @@ const structuredRequestLogger = (req, res, next) => {
     const end = process.hrtime.bigint();
     const durationMs = Number(end - start) / 1_000_000;
 
-    metricsService.observeHttpResponse(res.statusCode);
+    const routePath = req.route?.path
+      ? `${req.baseUrl || ''}${req.route.path}`
+      : req.path || req.originalUrl || 'unknown';
+
+    metricsService.observeHttpRequest({
+      method: req.method,
+      routePath,
+      statusCode: res.statusCode,
+      durationMs
+    });
 
     logger.info('http_request_completed', {
       requestId: req.requestId,
