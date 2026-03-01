@@ -1,0 +1,57 @@
+name: Backend CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: syncra
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d syncra"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/syncra
+      JWT_SECRET: ci-secret
+      ACCESS_TOKEN_EXPIRES_IN: 15m
+      REFRESH_TOKEN_TTL_DAYS: 30
+      JSON_BODY_LIMIT: 1mb
+      AUTH_RATE_WINDOW_MS: 600000
+      AUTH_RATE_MAX_REQUESTS: 30
+      SYNC_RATE_WINDOW_MS: 60000
+      SYNC_RATE_MAX_REQUESTS: 120
+      SYNC_BODY_MAX_BYTES: 262144
+      TOMBSTONE_RETENTION_DAYS: 30
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run migrations and tests
+        working-directory: backend
+        run: npm test
