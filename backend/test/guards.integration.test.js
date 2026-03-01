@@ -65,3 +65,12 @@ test('metrics endpoint exposes counters snapshot', async () => {
   assert.ok(typeof res.body.counters.httpRequestsTotal === 'number');
   assert.ok(typeof res.body.counters.syncPushConflictsTotal === 'number');
 });
+
+test('prometheus metrics endpoint exposes text format counters', async () => {
+  const res = await request(app).get('/metrics/prometheus');
+  assert.equal(res.statusCode, 200);
+  assert.ok(res.headers['content-type'].includes('text/plain'));
+  assert.ok(res.text.includes('syncra_uptime_seconds'));
+  assert.ok(res.text.includes('syncra_http_requests_total'));
+  assert.ok(res.text.includes('syncra_sync_push_conflicts_total'));
+});

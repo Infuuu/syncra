@@ -24,6 +24,7 @@ Server runs at `http://localhost:4000`.
 - `GET /` service status
 - `GET /health` backend + database health
 - `GET /metrics` backend uptime + in-memory counters
+- `GET /metrics/prometheus` Prometheus text exposition format
 - `POST /api/auth/register` create user + token
 - `POST /api/auth/login` login + token
 - `GET /api/boards` list boards (auth required)
