@@ -17,6 +17,16 @@ const mapSyncOperation = (row) => ({
   createdAt: row.created_at
 });
 
+const upsertBoardSyncState = async (client, boardId, latestVersion) => {
+  await client.query(
+    `INSERT INTO board_sync_state (board_id, latest_version, updated_at)
+     VALUES ($1, $2, now())
+     ON CONFLICT (board_id)
+     DO UPDATE SET latest_version = GREATEST(board_sync_state.latest_version, EXCLUDED.latest_version), updated_at = now()`,
+    [boardId, latestVersion]
+  );
+};
+
 const applySyncOperationsBatch = async ({ operations, applyCanonicalMutation }) => {
   const db = requirePool();
   const client = await db.connect();
@@ -57,6 +67,7 @@ const applySyncOperationsBatch = async ({ operations, applyCanonicalMutation }) 
         if (typeof applyCanonicalMutation === 'function') {
           await applyCanonicalMutation(client, mapped);
         }
+        await upsertBoardSyncState(client, mapped.boardId, mapped.version);
 
         results.push({
           status: 'applied',
@@ -141,13 +152,13 @@ const getLatestVisibleVersionForUser = async ({ userId, sinceVersion = 0, boardI
   let boardClause = '';
   if (boardId) {
     params.push(boardId);
-    boardClause = ` AND so.board_id = $${params.length}`;
+    boardClause = ` AND bss.board_id = $${params.length}`;
   }
 
   const { rows } = await db.query(
-    `SELECT COALESCE(MAX(so.version), $2::bigint)::bigint AS latest_version
-     FROM sync_operations so
-     INNER JOIN board_members bm ON bm.board_id = so.board_id
+    `SELECT COALESCE(MAX(bss.latest_version), $2::bigint)::bigint AS latest_version
+     FROM board_sync_state bss
+     INNER JOIN board_members bm ON bm.board_id = bss.board_id
      WHERE bm.user_id = $1
        ${boardClause}`,
     params

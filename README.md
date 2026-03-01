@@ -140,6 +140,7 @@ Supported operation actions: `created`, `updated`, `moved`, `deleted` for `list`
 - On version conflict, `sync/push` returns `409` with the latest server snapshot in:
   - `conflict.serverSnapshot`
 - Deletes are tombstoned (`is_deleted`, `deleted_at`) in canonical tables for safer offline reconciliation.
+- Per-board sync cursor state is maintained in `board_sync_state` to speed up latest-version calculations for pull/catch-up.
 - Rate limiting is enabled:
   - `/api/auth`: fixed-window IP limit
   - `/api/sync`: fixed-window user/IP limit

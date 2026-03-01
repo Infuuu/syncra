@@ -117,6 +117,7 @@ Returns operations visible to the caller, strictly after `sinceVersion`.
 
 `board.created` is intentionally not allowed via sync. Use `POST /api/boards`.
 Delete actions are implemented as tombstones in canonical tables (`is_deleted=true`, `deleted_at` set).
+Server tracks per-board latest operation cursor in `board_sync_state` to optimize pull/catch-up latest version resolution.
 
 ## WebSocket board channels
 
