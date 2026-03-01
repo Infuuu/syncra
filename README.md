@@ -158,6 +158,7 @@ When sync operations are applied for a subscribed board, server broadcasts:
 - Role model: `viewer` (read), `editor` (read/write cards+lists), `owner` (full access + member management).
 - Auth now uses short-lived access tokens plus rotating refresh tokens persisted server-side; logout revokes refresh tokens.
 - Security-sensitive actions are audited in `audit_logs` (auth refresh/logout/reuse, board creation/deletion, member role changes).
+- Request validation is centralized in a shared schema module and applied across auth, sync, board, member, list, and card write/query surfaces.
 - Sync operations are stored server-side with monotonic `version` for delta pulls.
 - `sync/push` now applies supported operations to canonical tables in the same DB transaction as operation-log insert.
 - `sync/push` is atomic per request batch: if any operation fails, the full batch is rolled back.

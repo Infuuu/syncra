@@ -2,6 +2,7 @@ const express = require('express');
 const boardRepository = require('../repositories/boardRepository');
 const boardMemberRepository = require('../repositories/boardMemberRepository');
 const auditLogRepository = require('../repositories/auditLogRepository');
+const { parseBoardCreateBody, parseBoardAuditQuery } = require('../validation/requestValidation');
 const { badRequest, notFound, forbidden, serverError } = require('../utils/http');
 
 const router = express.Router();
@@ -16,8 +17,9 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const name = String(req.body?.name || '').trim();
-  if (!name) return badRequest(res, 'name is required');
+  const parsed = parseBoardCreateBody(req.body);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const { name } = parsed.value;
 
   try {
     const board = await boardRepository.createBoardForUser({ name, userId: req.auth.userId });
@@ -77,8 +79,9 @@ router.get('/:boardId', async (req, res) => {
 
 router.get('/:boardId/audit', async (req, res) => {
   const boardId = req.params.boardId;
-  const limitRaw = Number(req.query?.limit ?? 100);
-  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 500) : 100;
+  const parsed = parseBoardAuditQuery(req.query);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const { limit } = parsed.value;
 
   try {
     const board = await boardRepository.getBoardById(boardId);

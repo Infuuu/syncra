@@ -3,6 +3,7 @@ const boardRepository = require('../repositories/boardRepository');
 const boardMemberRepository = require('../repositories/boardMemberRepository');
 const listRepository = require('../repositories/listRepository');
 const { hasRequiredRole } = require('../services/authorizationService');
+const { parseListCreateBody } = require('../validation/requestValidation');
 const { badRequest, notFound, forbidden, serverError } = require('../utils/http');
 
 const router = express.Router();
@@ -26,13 +27,9 @@ router.get('/board/:boardId', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const boardId = String(req.body?.boardId || '').trim();
-  const title = String(req.body?.title || '').trim();
-  const orderIndex = Number(req.body?.orderIndex || 0);
-
-  if (!boardId) return badRequest(res, 'boardId is required');
-  if (!title) return badRequest(res, 'title is required');
-  if (!Number.isFinite(orderIndex)) return badRequest(res, 'orderIndex must be a number');
+  const parsed = parseListCreateBody(req.body);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const { boardId, title, orderIndex } = parsed.value;
 
   try {
     const board = await boardRepository.getBoardById(boardId);

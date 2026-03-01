@@ -4,6 +4,7 @@ const boardMemberRepository = require('../repositories/boardMemberRepository');
 const listRepository = require('../repositories/listRepository');
 const cardRepository = require('../repositories/cardRepository');
 const { hasRequiredRole } = require('../services/authorizationService');
+const { parseCardCreateBody, parseCardPatchBody } = require('../validation/requestValidation');
 const { badRequest, notFound, forbidden, serverError } = require('../utils/http');
 
 const router = express.Router();
@@ -26,16 +27,9 @@ router.get('/list/:listId', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const boardId = String(req.body?.boardId || '').trim();
-  const listId = String(req.body?.listId || '').trim();
-  const title = String(req.body?.title || '').trim();
-  const description = String(req.body?.description || '').trim();
-  const orderIndex = Number(req.body?.orderIndex || 0);
-
-  if (!boardId) return badRequest(res, 'boardId is required');
-  if (!listId) return badRequest(res, 'listId is required');
-  if (!title) return badRequest(res, 'title is required');
-  if (!Number.isFinite(orderIndex)) return badRequest(res, 'orderIndex must be a number');
+  const parsed = parseCardCreateBody(req.body);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const { boardId, listId, title, description, orderIndex } = parsed.value;
 
   try {
     const board = await boardRepository.getBoardById(boardId);
@@ -67,15 +61,9 @@ router.post('/', async (req, res) => {
 
 router.patch('/:cardId', async (req, res) => {
   const cardId = req.params.cardId;
-  const patch = {};
-
-  if (typeof req.body?.title === 'string') patch.title = req.body.title.trim();
-  if (typeof req.body?.description === 'string') patch.description = req.body.description.trim();
-  if (typeof req.body?.listId === 'string') patch.listId = req.body.listId.trim();
-  if (typeof req.body?.orderIndex !== 'undefined') {
-    patch.orderIndex = Number(req.body.orderIndex);
-    if (!Number.isFinite(patch.orderIndex)) return badRequest(res, 'orderIndex must be a number');
-  }
+  const parsed = parseCardPatchBody(req.body);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const { patch } = parsed.value;
 
   try {
     const current = await cardRepository.getCardById(cardId);

@@ -13,36 +13,15 @@ const {
   SyncApplyConflictError,
   applySyncOperationToCanonicalTables
 } = require('../services/syncApplyService');
+const {
+  parseSyncPushBody,
+  parseSyncFailuresQuery,
+  parseSyncRetryParams,
+  parseSyncPullQuery
+} = require('../validation/requestValidation');
 const { badRequest, forbidden, notFound, serverError } = require('../utils/http');
 
 const router = express.Router();
-
-const normalizePushOperation = (input) => {
-  const boardId = String(input?.boardId || '').trim();
-  const clientOperationIdRaw = input?.clientOperationId;
-  const clientOperationId =
-    typeof clientOperationIdRaw === 'string' && clientOperationIdRaw.trim()
-      ? clientOperationIdRaw.trim()
-      : null;
-  const operationType = String(input?.operationType || '').trim();
-  const entityType = String(input?.entityType || '').trim();
-  const entityId = String(input?.entityId || '').trim();
-  const payload = input?.payload && typeof input.payload === 'object' ? input.payload : {};
-
-  if (!boardId) return { error: 'boardId is required' };
-  if (!operationType) return { error: 'operationType is required' };
-  if (!entityType) return { error: 'entityType is required' };
-  if (!entityId) return { error: 'entityId is required' };
-
-  return {
-    boardId,
-    clientOperationId,
-    operationType,
-    entityType,
-    entityId,
-    payload
-  };
-};
 
 const mapSyncInsertResult = (inserted) => ({
   status: inserted.status,
@@ -66,10 +45,9 @@ const normalizeOperationAction = (operationType) => {
 };
 
 router.post('/push', async (req, res) => {
-  const operations = Array.isArray(req.body?.operations) ? req.body.operations : null;
-  if (!operations) return badRequest(res, 'operations array is required');
-  if (operations.length === 0) return badRequest(res, 'operations must not be empty');
-  if (operations.length > 100) return badRequest(res, 'operations limit is 100 per request');
+  const parsed = parseSyncPushBody(req.body);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const { operations } = parsed.value;
 
   try {
     const roleCache = new Map();
@@ -80,34 +58,32 @@ router.post('/push', async (req, res) => {
         : null;
 
     for (const raw of operations) {
-      const operation = normalizePushOperation(raw);
-      if (operation.error) return badRequest(res, operation.error);
-      validateSyncPushOperation(operation);
+      validateSyncPushOperation(raw);
 
-      const board = await boardRepository.getBoardById(operation.boardId);
-      if (!board) return notFound(res, `board not found: ${operation.boardId}`);
+      const board = await boardRepository.getBoardById(raw.boardId);
+      if (!board) return notFound(res, `board not found: ${raw.boardId}`);
 
-      const cacheKey = operation.boardId;
+      const cacheKey = raw.boardId;
       let role = roleCache.get(cacheKey);
       if (!role) {
         role = await boardMemberRepository.getBoardRole({
-          boardId: operation.boardId,
+          boardId: raw.boardId,
           userId: req.auth.userId
         });
         roleCache.set(cacheKey, role || '');
       }
 
       if (!hasRequiredRole(role, 'editor')) {
-        return forbidden(res, `editor or owner role is required for board: ${operation.boardId}`);
+        return forbidden(res, `editor or owner role is required for board: ${raw.boardId}`);
       }
       normalizedOperations.push({
-        boardId: operation.boardId,
+        boardId: raw.boardId,
         actorUserId: req.auth.userId,
-        clientOperationId: operation.clientOperationId,
-        operationType: operation.operationType,
-        entityType: operation.entityType,
-        entityId: operation.entityId,
-        payload: operation.payload
+        clientOperationId: raw.clientOperationId,
+        operationType: raw.operationType,
+        entityType: raw.entityType,
+        entityId: raw.entityId,
+        payload: raw.payload
       });
     }
 
@@ -210,9 +186,9 @@ router.post('/push', async (req, res) => {
 });
 
 router.get('/failures', async (req, res) => {
-  const boardId = req.query?.boardId ? String(req.query.boardId).trim() : null;
-  const limitRaw = Number(req.query?.limit ?? 100);
-  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 500) : 100;
+  const parsed = parseSyncFailuresQuery(req.query);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const { boardId, limit } = parsed.value;
 
   try {
     if (boardId) {
@@ -239,10 +215,9 @@ router.get('/failures', async (req, res) => {
 });
 
 router.post('/failures/:failureId/retry', async (req, res) => {
-  const failureId = Number(req.params?.failureId);
-  if (!Number.isInteger(failureId) || failureId < 1) {
-    return badRequest(res, 'failureId must be a positive integer');
-  }
+  const parsed = parseSyncRetryParams(req.params);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const { failureId } = parsed.value;
 
   try {
     const failure = await syncFailureRepository.getOpenFailureByIdForActor({
@@ -378,15 +353,9 @@ router.post('/failures/:failureId/retry', async (req, res) => {
 });
 
 router.get('/pull', async (req, res) => {
-  const sinceVersionRaw = req.query?.sinceVersion;
-  const sinceVersion = Number(sinceVersionRaw ?? 0);
-  const boardId = req.query?.boardId ? String(req.query.boardId).trim() : null;
-  const limitRaw = Number(req.query?.limit ?? 500);
-  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 1000) : 500;
-
-  if (!Number.isInteger(sinceVersion) || sinceVersion < 0) {
-    return badRequest(res, 'sinceVersion must be a non-negative integer');
-  }
+  const parsed = parseSyncPullQuery(req.query);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const { sinceVersion, boardId, limit } = parsed.value;
 
   try {
     if (boardId) {

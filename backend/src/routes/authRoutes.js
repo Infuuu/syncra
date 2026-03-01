@@ -12,6 +12,11 @@ const {
   hashRefreshToken,
   calculateRefreshTokenExpiresAt
 } = require('../services/tokenService');
+const {
+  parseAuthRegisterBody,
+  parseAuthLoginBody,
+  parseRefreshTokenBody
+} = require('../validation/requestValidation');
 const { badRequest, conflict, unauthorized, serverError } = require('../utils/http');
 
 const router = express.Router();
@@ -59,14 +64,9 @@ const issueTokenPair = async ({ user, familyId = null, parentTokenId = null, cli
 };
 
 router.post('/register', async (req, res) => {
-  const email = String(req.body?.email || '').trim().toLowerCase();
-  const password = String(req.body?.password || '');
-  const displayName = String(req.body?.displayName || '').trim();
-
-  if (!email) return badRequest(res, 'email is required');
-  if (!password) return badRequest(res, 'password is required');
-  if (!displayName) return badRequest(res, 'displayName is required');
-  if (password.length < 8) return badRequest(res, 'password must be at least 8 characters');
+  const parsed = parseAuthRegisterBody(req.body);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const { email, password, displayName } = parsed.value;
 
   try {
     const existing = await userRepository.getUserByEmail(email);
@@ -91,11 +91,9 @@ router.post('/register', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-  const email = String(req.body?.email || '').trim().toLowerCase();
-  const password = String(req.body?.password || '');
-
-  if (!email) return badRequest(res, 'email is required');
-  if (!password) return badRequest(res, 'password is required');
+  const parsed = parseAuthLoginBody(req.body);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const { email, password } = parsed.value;
 
   try {
     const user = await userRepository.getUserByEmail(email);
@@ -120,8 +118,9 @@ router.post('/login', async (req, res) => {
 });
 
 router.post('/refresh', async (req, res) => {
-  const presentedRefreshToken = String(req.body?.refreshToken || '').trim();
-  if (!presentedRefreshToken) return badRequest(res, 'refreshToken is required');
+  const parsed = parseRefreshTokenBody(req.body);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const presentedRefreshToken = parsed.value.refreshToken;
 
   const refreshTokenHash = hashRefreshToken(presentedRefreshToken);
 
@@ -232,8 +231,9 @@ router.post('/refresh', async (req, res) => {
 });
 
 router.post('/logout', async (req, res) => {
-  const presentedRefreshToken = String(req.body?.refreshToken || '').trim();
-  if (!presentedRefreshToken) return badRequest(res, 'refreshToken is required');
+  const parsed = parseRefreshTokenBody(req.body);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const presentedRefreshToken = parsed.value.refreshToken;
 
   try {
     const tokenHash = hashRefreshToken(presentedRefreshToken);

@@ -5,9 +5,11 @@ const boardMemberRepository = require('../repositories/boardMemberRepository');
 const userRepository = require('../repositories/userRepository');
 const auditLogRepository = require('../repositories/auditLogRepository');
 const { hasRequiredRole } = require('../services/authorizationService');
+const {
+  parseBoardMemberUpsertBody,
+  parseBoardMemberRolePatchBody
+} = require('../validation/requestValidation');
 const { badRequest, notFound, forbidden, serverError } = require('../utils/http');
-
-const VALID_ROLES = new Set(['viewer', 'editor', 'owner']);
 
 const router = express.Router({ mergeParams: true });
 
@@ -30,11 +32,9 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const boardId = req.params.boardId;
-  const email = String(req.body?.email || '').trim().toLowerCase();
-  const role = String(req.body?.role || '').trim().toLowerCase();
-
-  if (!email) return badRequest(res, 'email is required');
-  if (!VALID_ROLES.has(role)) return badRequest(res, 'role must be one of: viewer, editor, owner');
+  const parsed = parseBoardMemberUpsertBody(req.body);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const { email, role } = parsed.value;
 
   try {
     const board = await boardRepository.getBoardById(boardId);
@@ -73,9 +73,9 @@ router.post('/', async (req, res) => {
 router.patch('/:userId', async (req, res) => {
   const boardId = req.params.boardId;
   const targetUserId = req.params.userId;
-  const role = String(req.body?.role || '').trim().toLowerCase();
-
-  if (!VALID_ROLES.has(role)) return badRequest(res, 'role must be one of: viewer, editor, owner');
+  const parsed = parseBoardMemberRolePatchBody(req.body);
+  if (!parsed.ok) return badRequest(res, parsed.error);
+  const { role } = parsed.value;
 
   try {
     const board = await boardRepository.getBoardById(boardId);

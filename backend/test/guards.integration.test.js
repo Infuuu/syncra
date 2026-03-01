@@ -74,3 +74,13 @@ test('prometheus metrics endpoint exposes text format counters', async () => {
   assert.ok(res.text.includes('syncra_http_requests_total'));
   assert.ok(res.text.includes('syncra_sync_push_conflicts_total'));
 });
+
+test('auth register validates email format', async () => {
+  const res = await request(app).post('/api/auth/register').send({
+    email: 'invalid-email',
+    password: 'Password123',
+    displayName: 'Invalid Email'
+  });
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.error, 'email must be a valid email address');
+});
