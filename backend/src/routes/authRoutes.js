@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 
 const userRepository = require('../repositories/userRepository');
 const refreshTokenRepository = require('../repositories/refreshTokenRepository');
+const auditLogRepository = require('../repositories/auditLogRepository');
 const { pool } = require('../db/pool');
 const {
   signAccessToken,
@@ -14,6 +15,11 @@ const {
 const { badRequest, conflict, unauthorized, serverError } = require('../utils/http');
 
 const router = express.Router();
+
+const getRequestMetadata = (req) => ({
+  ip: req.ip || null,
+  userAgent: req.header('user-agent') || null
+});
 
 const toAuthResponse = (user, accessToken, refreshToken) => ({
   user: {
@@ -69,6 +75,14 @@ router.post('/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await userRepository.createUser({ email, passwordHash, displayName });
     const { accessToken, refreshToken } = await issueTokenPair({ user });
+    await auditLogRepository.createAuditLog({
+      actorUserId: user.id,
+      boardId: null,
+      eventType: 'auth.registered',
+      entityType: 'user',
+      entityId: user.id,
+      metadata: getRequestMetadata(req)
+    });
 
     return res.status(201).json(toAuthResponse(user, accessToken, refreshToken));
   } catch (error) {
@@ -91,6 +105,14 @@ router.post('/login', async (req, res) => {
     if (!passwordMatches) return unauthorized(res, 'invalid email or password');
 
     const { accessToken, refreshToken } = await issueTokenPair({ user });
+    await auditLogRepository.createAuditLog({
+      actorUserId: user.id,
+      boardId: null,
+      eventType: 'auth.logged_in',
+      entityType: 'user',
+      entityId: user.id,
+      metadata: getRequestMetadata(req)
+    });
     return res.json(toAuthResponse(user, accessToken, refreshToken));
   } catch (error) {
     return serverError(res, error.message);
@@ -125,6 +147,15 @@ router.post('/refresh', async (req, res) => {
         familyId: existing.familyId,
         reason: 'refresh_token_reuse_detected'
       });
+      await auditLogRepository.createAuditLog({
+        client,
+        actorUserId: existing.userId,
+        boardId: null,
+        eventType: 'auth.refresh_reuse_detected',
+        entityType: 'refresh_token_family',
+        entityId: existing.familyId,
+        metadata: getRequestMetadata(req)
+      });
       await client.query('COMMIT');
       return unauthorized(res, 'refresh token reuse detected');
     }
@@ -134,6 +165,15 @@ router.post('/refresh', async (req, res) => {
         client,
         tokenId: existing.id,
         reason: 'refresh_token_expired'
+      });
+      await auditLogRepository.createAuditLog({
+        client,
+        actorUserId: existing.userId,
+        boardId: null,
+        eventType: 'auth.refresh_expired',
+        entityType: 'refresh_token',
+        entityId: existing.id,
+        metadata: getRequestMetadata(req)
       });
       await client.query('COMMIT');
       return unauthorized(res, 'refresh token expired');
@@ -163,6 +203,19 @@ router.post('/refresh', async (req, res) => {
       reason: 'refresh_token_rotated',
       replacedByTokenId: refreshTokenId
     });
+    await auditLogRepository.createAuditLog({
+      client,
+      actorUserId: user.id,
+      boardId: null,
+      eventType: 'auth.refresh_rotated',
+      entityType: 'refresh_token',
+      entityId: refreshTokenId,
+      metadata: {
+        previousTokenId: existing.id,
+        familyId: existing.familyId,
+        ...getRequestMetadata(req)
+      }
+    });
     await client.query('COMMIT');
 
     return res.json(toAuthResponse(user, accessToken, refreshToken));
@@ -183,10 +236,24 @@ router.post('/logout', async (req, res) => {
   if (!presentedRefreshToken) return badRequest(res, 'refreshToken is required');
 
   try {
+    const tokenHash = hashRefreshToken(presentedRefreshToken);
+    const existing = await refreshTokenRepository.getRefreshTokenByHash({
+      tokenHash
+    });
     const revoked = await refreshTokenRepository.revokeRefreshTokenByHash({
-      tokenHash: hashRefreshToken(presentedRefreshToken),
+      tokenHash,
       reason: 'logout'
     });
+    if (revoked) {
+      await auditLogRepository.createAuditLog({
+        actorUserId: existing?.userId || null,
+        boardId: null,
+        eventType: 'auth.logged_out',
+        entityType: 'refresh_token',
+        entityId: existing?.id || 'unknown',
+        metadata: getRequestMetadata(req)
+      });
+    }
     return revoked ? res.status(204).send() : res.status(204).send();
   } catch (error) {
     return serverError(res, error.message);

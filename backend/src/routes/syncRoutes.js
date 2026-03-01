@@ -4,6 +4,7 @@ const boardRepository = require('../repositories/boardRepository');
 const boardMemberRepository = require('../repositories/boardMemberRepository');
 const syncRepository = require('../repositories/syncRepository');
 const syncFailureRepository = require('../repositories/syncFailureRepository');
+const auditLogRepository = require('../repositories/auditLogRepository');
 const { hasRequiredRole } = require('../services/authorizationService');
 const { validateSyncPushOperation } = require('../services/syncValidationService');
 const metricsService = require('../services/metricsService');
@@ -53,6 +54,16 @@ const mapSyncInsertResult = (inserted) => ({
   entityId: inserted.operation.entityId,
   createdAt: inserted.operation.createdAt
 });
+
+const normalizeOperationAction = (operationType) => {
+  const value = String(operationType || '').trim().toLowerCase();
+  const action = value.includes('.') ? value.split('.').pop() : value;
+  if (action === 'create') return 'created';
+  if (action === 'update') return 'updated';
+  if (action === 'delete') return 'deleted';
+  if (action === 'move') return 'moved';
+  return action;
+};
 
 router.post('/push', async (req, res) => {
   const operations = Array.isArray(req.body?.operations) ? req.body.operations : null;
@@ -104,6 +115,21 @@ router.post('/push', async (req, res) => {
       operations: normalizedOperations,
       applyCanonicalMutation: async (client, mappedOperation) => {
         await applySyncOperationToCanonicalTables(client, mappedOperation);
+        const action = normalizeOperationAction(mappedOperation.operationType);
+        if (mappedOperation.entityType === 'board' && action === 'deleted') {
+          await auditLogRepository.createAuditLog({
+            client,
+            actorUserId: mappedOperation.actorUserId,
+            boardId: mappedOperation.boardId,
+            eventType: 'board.deleted',
+            entityType: 'board',
+            entityId: mappedOperation.entityId,
+            metadata: {
+              via: 'sync.push',
+              operationVersion: mappedOperation.version
+            }
+          });
+        }
       }
     });
 
@@ -252,6 +278,21 @@ router.post('/failures/:failureId/retry', async (req, res) => {
       ],
       applyCanonicalMutation: async (client, mappedOperation) => {
         await applySyncOperationToCanonicalTables(client, mappedOperation);
+        const action = normalizeOperationAction(mappedOperation.operationType);
+        if (mappedOperation.entityType === 'board' && action === 'deleted') {
+          await auditLogRepository.createAuditLog({
+            client,
+            actorUserId: mappedOperation.actorUserId,
+            boardId: mappedOperation.boardId,
+            eventType: 'board.deleted',
+            entityType: 'board',
+            entityId: mappedOperation.entityId,
+            metadata: {
+              via: 'sync.retry',
+              operationVersion: mappedOperation.version
+            }
+          });
+        }
       }
     });
 

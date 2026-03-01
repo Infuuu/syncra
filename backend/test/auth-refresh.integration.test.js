@@ -75,6 +75,17 @@ test('auth refresh flow rotates refresh token and revokes family on reuse', asyn
     refreshToken: secondRefresh
   });
   assert.equal(familyRevoked.statusCode, 401);
+
+  const authAudit = await pool.query(
+    `SELECT event_type
+     FROM audit_logs
+     WHERE actor_user_id = $1::uuid`,
+    [registerRes.body.user.id]
+  );
+  const eventTypes = authAudit.rows.map((row) => row.event_type);
+  assert.ok(eventTypes.includes('auth.registered'));
+  assert.ok(eventTypes.includes('auth.refresh_rotated'));
+  assert.ok(eventTypes.includes('auth.refresh_reuse_detected'));
 });
 
 test('auth logout revokes refresh token', async () => {
@@ -97,5 +108,13 @@ test('auth logout revokes refresh token', async () => {
 
   const refreshAfterLogout = await request(app).post('/api/auth/refresh').send({ refreshToken });
   assert.equal(refreshAfterLogout.statusCode, 401);
-});
 
+  const logoutAudit = await pool.query(
+    `SELECT event_type
+     FROM audit_logs
+     WHERE actor_user_id = $1::uuid
+       AND event_type = 'auth.logged_out'`,
+    [loginRegister.body.user.id]
+  );
+  assert.equal(logoutAudit.rowCount, 1);
+});

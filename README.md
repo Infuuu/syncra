@@ -31,6 +31,7 @@ Server runs at `http://localhost:4000`.
 - `POST /api/auth/logout` revoke refresh token
 - `GET /api/boards` list boards (auth required)
 - `POST /api/boards` create board `{ "name": "Demo Board" }` (auth required)
+- `GET /api/boards/:boardId/audit?limit=<optional>` list board audit events (auth required + membership)
 - `GET /api/boards/:boardId/me` get caller role for this board (auth required + membership)
 - `GET /api/boards/:boardId/members` list board members (auth required + membership)
 - `POST /api/boards/:boardId/members` add/update member by email `{ "email": "...", "role": "viewer|editor|owner" }` (owner only)
@@ -156,6 +157,7 @@ When sync operations are applied for a subscribed board, server broadcasts:
 - New tables: `users`, `board_members` (plus `boards`, `lists`, `cards`).
 - Role model: `viewer` (read), `editor` (read/write cards+lists), `owner` (full access + member management).
 - Auth now uses short-lived access tokens plus rotating refresh tokens persisted server-side; logout revokes refresh tokens.
+- Security-sensitive actions are audited in `audit_logs` (auth refresh/logout/reuse, board creation/deletion, member role changes).
 - Sync operations are stored server-side with monotonic `version` for delta pulls.
 - `sync/push` now applies supported operations to canonical tables in the same DB transaction as operation-log insert.
 - `sync/push` is atomic per request batch: if any operation fails, the full batch is rolled back.

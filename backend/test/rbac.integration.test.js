@@ -132,6 +132,29 @@ test('RBAC matrix: viewer/editor/owner access and member constraints', async () 
     .send({ email: viewerEmail, role: 'viewer' });
   assert.equal(addViewerRes.statusCode, 201);
 
+  const auditAfterMemberAdds = await pool.query(
+    `SELECT event_type
+     FROM audit_logs
+     WHERE board_id = $1::uuid
+     ORDER BY id ASC`,
+    [boardId]
+  );
+  assert.ok(auditAfterMemberAdds.rows.some((row) => row.event_type === 'board.created'));
+  assert.ok(
+    auditAfterMemberAdds.rows.filter((row) => row.event_type === 'board.member_added').length >= 2
+  );
+
+  const ownerBoardAuditRes = await request(app)
+    .get(`/api/boards/${boardId}/audit`)
+    .set('Authorization', `Bearer ${ownerToken}`);
+  assert.equal(ownerBoardAuditRes.statusCode, 200);
+  assert.ok(ownerBoardAuditRes.body.items.length >= 3);
+
+  const outsiderAuditRes = await request(app)
+    .get(`/api/boards/${boardId}/audit`)
+    .set('Authorization', `Bearer ${outsiderToken}`);
+  assert.equal(outsiderAuditRes.statusCode, 403);
+
   const ownerMeRes = await request(app)
     .get(`/api/boards/${boardId}/me`)
     .set('Authorization', `Bearer ${ownerToken}`);
@@ -684,6 +707,32 @@ test('Sync endpoints: push/pull are versioned, idempotent, and role-aware', asyn
   assert.ok(ownerPullSinceRes.body.items.length >= 1);
   assert.ok(ownerPullSinceRes.body.items.every((item) => item.version > firstVersion));
   assert.ok(ownerPullSinceRes.body.latestVersion >= firstVersion);
+
+  const boardDeleteRes = await request(app)
+    .post('/api/sync/push')
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({
+      operations: [
+        {
+          clientOperationId: 'owner-op-board-delete-audit',
+          boardId,
+          operationType: 'board.deleted',
+          entityType: 'board',
+          entityId: boardId,
+          payload: { expectedVersion: 1 }
+        }
+      ]
+    });
+  assert.equal(boardDeleteRes.statusCode, 201);
+
+  const boardDeleteAudit = await pool.query(
+    `SELECT event_type
+     FROM audit_logs
+     WHERE board_id = $1::uuid
+       AND event_type = 'board.deleted'`,
+    [boardId]
+  );
+  assert.equal(boardDeleteAudit.rowCount, 1);
 });
 
 test('WebSocket channels: JWT auth, board subscription authorization, and sync broadcast', async () => {

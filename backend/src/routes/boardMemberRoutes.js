@@ -3,6 +3,7 @@ const express = require('express');
 const boardRepository = require('../repositories/boardRepository');
 const boardMemberRepository = require('../repositories/boardMemberRepository');
 const userRepository = require('../repositories/userRepository');
+const auditLogRepository = require('../repositories/auditLogRepository');
 const { hasRequiredRole } = require('../services/authorizationService');
 const { badRequest, notFound, forbidden, serverError } = require('../utils/http');
 
@@ -47,7 +48,21 @@ router.post('/', async (req, res) => {
     const user = await userRepository.getUserByEmail(email);
     if (!user) return notFound(res, 'user with this email does not exist');
 
+    const existingRole = await boardMemberRepository.getBoardRole({ boardId, userId: user.id });
     await boardMemberRepository.addBoardMember({ boardId, userId: user.id, role });
+    if (existingRole !== role) {
+      await auditLogRepository.createAuditLog({
+        actorUserId: req.auth.userId,
+        boardId,
+        eventType: existingRole ? 'board.member_role_updated' : 'board.member_added',
+        entityType: 'board_member',
+        entityId: user.id,
+        metadata: {
+          previousRole: existingRole,
+          nextRole: role
+        }
+      });
+    }
     const items = await boardMemberRepository.listBoardMembers(boardId);
     return res.status(201).json({ items });
   } catch (error) {
@@ -80,6 +95,19 @@ router.patch('/:userId', async (req, res) => {
     }
 
     await boardMemberRepository.updateBoardMemberRole({ boardId, userId: targetUserId, role });
+    if (targetRole !== role) {
+      await auditLogRepository.createAuditLog({
+        actorUserId: req.auth.userId,
+        boardId,
+        eventType: 'board.member_role_updated',
+        entityType: 'board_member',
+        entityId: targetUserId,
+        metadata: {
+          previousRole: targetRole,
+          nextRole: role
+        }
+      });
+    }
     const items = await boardMemberRepository.listBoardMembers(boardId);
     return res.json({ items });
   } catch (error) {
@@ -109,6 +137,16 @@ router.delete('/:userId', async (req, res) => {
     }
 
     await boardMemberRepository.removeBoardMember({ boardId, userId: targetUserId });
+    await auditLogRepository.createAuditLog({
+      actorUserId: req.auth.userId,
+      boardId,
+      eventType: 'board.member_removed',
+      entityType: 'board_member',
+      entityId: targetUserId,
+      metadata: {
+        removedRole: targetRole
+      }
+    });
     const items = await boardMemberRepository.listBoardMembers(boardId);
     return res.json({ items });
   } catch (error) {
