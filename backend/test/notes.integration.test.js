@@ -561,3 +561,150 @@ test('Note sync enforces schemaVersion compatibility', async () => {
   );
   assert.equal(incompatibleVersionRes.body.errorCode, 'note_schema_version_unsupported');
 });
+
+test('Note sync is idempotent for duplicate clientOperationId retries', async () => {
+  await clearDb();
+
+  const ownerToken = await registerAndGetToken(uniqueEmail('idem-owner'), 'Idem Owner');
+  const boardRes = await request(app)
+    .post('/api/boards')
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({ name: 'Idem Notes Board' });
+  assert.equal(boardRes.statusCode, 201);
+  const boardId = boardRes.body.id;
+
+  const noteId = '14141414-1414-4141-8141-141414141414';
+
+  const createRes = await request(app)
+    .post('/api/sync/push')
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({
+      operations: [
+        {
+          clientOperationId: 'idem-note-create',
+          boardId,
+          operationType: 'note.created',
+          entityType: 'note',
+          entityId: noteId,
+          payload: {
+            title: 'Idempotent note',
+            content: { type: 'doc', content: [] }
+          }
+        }
+      ]
+    });
+  assert.equal(createRes.statusCode, 201);
+  assert.equal(createRes.body.items[0].status, 'applied');
+
+  const createRetryRes = await request(app)
+    .post('/api/sync/push')
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({
+      operations: [
+        {
+          clientOperationId: 'idem-note-create',
+          boardId,
+          operationType: 'note.created',
+          entityType: 'note',
+          entityId: noteId,
+          payload: {
+            title: 'Idempotent note',
+            content: { type: 'doc', content: [] }
+          }
+        }
+      ]
+    });
+  assert.equal(createRetryRes.statusCode, 201);
+  assert.equal(createRetryRes.body.items[0].status, 'duplicate');
+  assert.equal(createRetryRes.body.items[0].version, createRes.body.items[0].version);
+
+  const updateRes = await request(app)
+    .post('/api/sync/push')
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({
+      operations: [
+        {
+          clientOperationId: 'idem-note-update',
+          boardId,
+          operationType: 'note.updated',
+          entityType: 'note',
+          entityId: noteId,
+          payload: {
+            expectedVersion: 1,
+            title: 'Updated once',
+            content: { type: 'doc', content: [{ type: 'paragraph', content: [] }] }
+          }
+        }
+      ]
+    });
+  assert.equal(updateRes.statusCode, 201);
+  assert.equal(updateRes.body.items[0].status, 'applied');
+
+  const updateRetryRes = await request(app)
+    .post('/api/sync/push')
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({
+      operations: [
+        {
+          clientOperationId: 'idem-note-update',
+          boardId,
+          operationType: 'note.updated',
+          entityType: 'note',
+          entityId: noteId,
+          payload: {
+            expectedVersion: 1,
+            title: 'Updated once',
+            content: { type: 'doc', content: [{ type: 'paragraph', content: [] }] }
+          }
+        }
+      ]
+    });
+  assert.equal(updateRetryRes.statusCode, 201);
+  assert.equal(updateRetryRes.body.items[0].status, 'duplicate');
+  assert.equal(updateRetryRes.body.items[0].version, updateRes.body.items[0].version);
+
+  const deleteRes = await request(app)
+    .post('/api/sync/push')
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({
+      operations: [
+        {
+          clientOperationId: 'idem-note-delete',
+          boardId,
+          operationType: 'note.deleted',
+          entityType: 'note',
+          entityId: noteId,
+          payload: { expectedVersion: 2 }
+        }
+      ]
+    });
+  assert.equal(deleteRes.statusCode, 201);
+  assert.equal(deleteRes.body.items[0].status, 'applied');
+
+  const deleteRetryRes = await request(app)
+    .post('/api/sync/push')
+    .set('Authorization', `Bearer ${ownerToken}`)
+    .send({
+      operations: [
+        {
+          clientOperationId: 'idem-note-delete',
+          boardId,
+          operationType: 'note.deleted',
+          entityType: 'note',
+          entityId: noteId,
+          payload: { expectedVersion: 2 }
+        }
+      ]
+    });
+  assert.equal(deleteRetryRes.statusCode, 201);
+  assert.equal(deleteRetryRes.body.items[0].status, 'duplicate');
+  assert.equal(deleteRetryRes.body.items[0].version, deleteRes.body.items[0].version);
+
+  const noteRowRes = await pool.query(
+    'SELECT version, is_deleted FROM notes WHERE id = $1::uuid',
+    [noteId]
+  );
+  assert.equal(noteRowRes.rowCount, 1);
+  assert.equal(Number(noteRowRes.rows[0].version), 3);
+  assert.equal(noteRowRes.rows[0].is_deleted, true);
+});
