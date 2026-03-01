@@ -1,9 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const http = require('node:http');
 const request = require('supertest');
+const WebSocket = require('ws');
 
 const app = require('../src/app');
 const { pool } = require('../src/db/pool');
+const { setupWebSocket } = require('../src/realtime/ws');
 
 const uniqueEmail = (prefix) => `${prefix}.${Date.now()}.${Math.floor(Math.random() * 100000)}@example.com`;
 
@@ -27,6 +30,67 @@ const registerAndGetToken = async (email, displayName) => {
   assert.equal(loginRes.statusCode, 200, `login failed for ${email}`);
   return loginRes.body.token;
 };
+
+const startHttpAndWsServer = async () =>
+  new Promise((resolve, reject) => {
+    const server = http.createServer(app);
+    const { broadcastSyncOperation } = setupWebSocket(server);
+    app.locals.broadcastSyncOperation = broadcastSyncOperation;
+
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      resolve({
+        server,
+        baseUrl: `http://127.0.0.1:${address.port}`,
+        wsUrl: `ws://127.0.0.1:${address.port}`
+      });
+    });
+
+    server.on('error', reject);
+  });
+
+const stopServer = async (server) =>
+  new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) return reject(error);
+      return resolve();
+    });
+  });
+
+const waitForWsMessage = (ws, predicate, timeoutMs = 6000) =>
+  new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('timeout waiting for websocket message'));
+    }, timeoutMs);
+
+    const onMessage = (raw) => {
+      let parsed;
+      try {
+        parsed = JSON.parse(raw.toString());
+      } catch (_error) {
+        return;
+      }
+
+      if (!predicate(parsed)) return;
+      cleanup();
+      resolve(parsed);
+    };
+
+    const onError = (error) => {
+      cleanup();
+      reject(error);
+    };
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      ws.off('message', onMessage);
+      ws.off('error', onError);
+    };
+
+    ws.on('message', onMessage);
+    ws.on('error', onError);
+  });
 
 test.before(async () => {
   assert.ok(pool, 'DATABASE_URL must be configured for integration tests');
@@ -411,4 +475,116 @@ test('Sync endpoints: push/pull are versioned, idempotent, and role-aware', asyn
   assert.ok(ownerPullSinceRes.body.items.length >= 1);
   assert.ok(ownerPullSinceRes.body.items.every((item) => item.version > firstVersion));
   assert.ok(ownerPullSinceRes.body.latestVersion >= firstVersion);
+});
+
+test('WebSocket channels: JWT auth, board subscription authorization, and sync broadcast', async () => {
+  await clearDb();
+
+  const { server, baseUrl, wsUrl } = await startHttpAndWsServer();
+  const api = request(baseUrl);
+
+  try {
+    const password = 'Password123';
+    const ownerEmail = uniqueEmail('ws-owner');
+    const viewerEmail = uniqueEmail('ws-viewer');
+    const outsiderEmail = uniqueEmail('ws-outsider');
+
+    const ownerRegister = await api
+      .post('/api/auth/register')
+      .send({ email: ownerEmail, password, displayName: 'WS Owner' });
+    assert.equal(ownerRegister.statusCode, 201);
+    const ownerToken = ownerRegister.body.token;
+
+    const viewerRegister = await api
+      .post('/api/auth/register')
+      .send({ email: viewerEmail, password, displayName: 'WS Viewer' });
+    assert.equal(viewerRegister.statusCode, 201);
+    const viewerToken = viewerRegister.body.token;
+
+    const outsiderRegister = await api
+      .post('/api/auth/register')
+      .send({ email: outsiderEmail, password, displayName: 'WS Outsider' });
+    assert.equal(outsiderRegister.statusCode, 201);
+    const outsiderToken = outsiderRegister.body.token;
+
+    const boardRes = await api
+      .post('/api/boards')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'WS Integration Board' });
+    assert.equal(boardRes.statusCode, 201);
+    const boardId = boardRes.body.id;
+
+    const addViewerRes = await api
+      .post(`/api/boards/${boardId}/members`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ email: viewerEmail, role: 'viewer' });
+    assert.equal(addViewerRes.statusCode, 201);
+
+    const listRes = await api
+      .post('/api/lists')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ boardId, title: 'WS List', orderIndex: 0 });
+    assert.equal(listRes.statusCode, 201);
+    const listId = listRes.body.id;
+
+    const viewerWs = new WebSocket(`${wsUrl}/?token=${encodeURIComponent(viewerToken)}`);
+    await waitForWsMessage(viewerWs, (msg) => msg.type === 'welcome');
+
+    viewerWs.send(JSON.stringify({ type: 'subscribe_board', boardId }));
+    const viewerSubscribed = await waitForWsMessage(
+      viewerWs,
+      (msg) => msg.type === 'subscribed_board' && msg.boardId === boardId
+    );
+    assert.equal(viewerSubscribed.role, 'viewer');
+
+    const outsiderWs = new WebSocket(`${wsUrl}/?token=${encodeURIComponent(outsiderToken)}`);
+    await waitForWsMessage(outsiderWs, (msg) => msg.type === 'welcome');
+    outsiderWs.send(JSON.stringify({ type: 'subscribe_board', boardId }));
+    const outsiderError = await waitForWsMessage(
+      outsiderWs,
+      (msg) => msg.type === 'error' && msg.error === 'forbidden_board_subscription'
+    );
+    assert.equal(outsiderError.boardId, boardId);
+
+    const expectedEntityId = '55555555-5555-4555-8555-555555555555';
+    const viewerBroadcastPromise = waitForWsMessage(
+      viewerWs,
+      (msg) =>
+        msg.type === 'sync.operation.applied' &&
+        msg.data?.boardId === boardId &&
+        msg.data?.entityId === expectedEntityId
+    );
+
+    const pushRes = await api
+      .post('/api/sync/push')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        operations: [
+          {
+            clientOperationId: 'ws-broadcast-op-1',
+            boardId,
+            operationType: 'card.created',
+            entityType: 'card',
+            entityId: expectedEntityId,
+            payload: {
+              listId,
+              title: 'Broadcasted Card',
+              description: 'ws integration',
+              orderIndex: 0
+            }
+          }
+        ]
+      });
+    assert.equal(pushRes.statusCode, 201);
+
+    const viewerBroadcast = await viewerBroadcastPromise;
+    assert.equal(viewerBroadcast.data.operationType, 'card.created');
+    assert.equal(viewerBroadcast.data.entityType, 'card');
+
+    viewerWs.close();
+    outsiderWs.close();
+  } finally {
+    app.locals.broadcastSyncOperation = () => {};
+    await stopServer(server);
+  }
 });
