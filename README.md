@@ -64,6 +64,18 @@ npm test
 
 This runs migrations first, then executes RBAC integration tests.
 
+Tombstone cleanup job:
+
+```bash
+npm run job:cleanup:tombstones
+```
+
+Dry run:
+
+```bash
+npm run job:cleanup:tombstones -- --dry-run
+```
+
 ## WebSocket
 
 Connect with JWT token in query string:
@@ -147,6 +159,7 @@ Supported operation actions: `created`, `updated`, `moved`, `deleted` for `list`
 - On version conflict, `sync/push` returns `409` with the latest server snapshot in:
   - `conflict.serverSnapshot`
 - Deletes are tombstoned (`is_deleted`, `deleted_at`) in canonical tables for safer offline reconciliation.
+- Tombstones are retained for `TOMBSTONE_RETENTION_DAYS` and can be pruned by cleanup job.
 - Per-board sync cursor state is maintained in `board_sync_state` to speed up latest-version calculations for pull/catch-up.
 - Rate limiting is enabled:
   - `/api/auth`: fixed-window IP limit

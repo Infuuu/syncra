@@ -18,5 +18,6 @@ module.exports = {
   authRateMaxRequests: toNumber(process.env.AUTH_RATE_MAX_REQUESTS, 30),
   syncRateWindowMs: toNumber(process.env.SYNC_RATE_WINDOW_MS, 60 * 1000),
   syncRateMaxRequests: toNumber(process.env.SYNC_RATE_MAX_REQUESTS, 120),
-  syncBodyMaxBytes: toNumber(process.env.SYNC_BODY_MAX_BYTES, 256 * 1024)
+  syncBodyMaxBytes: toNumber(process.env.SYNC_BODY_MAX_BYTES, 256 * 1024),
+  tombstoneRetentionDays: toNumber(process.env.TOMBSTONE_RETENTION_DAYS, 30)
 };

@@ -125,6 +125,7 @@ Returns operations visible to the caller, strictly after `sinceVersion`.
 Delete actions are implemented as tombstones in canonical tables (`is_deleted=true`, `deleted_at` set).
 Server tracks per-board latest operation cursor in `board_sync_state` to optimize pull/catch-up latest version resolution.
 Sync conflict count is exposed via `/metrics` in `counters.syncPushConflictsTotal`.
+Expired tombstones can be hard-pruned via `npm run job:cleanup:tombstones` (supports `--dry-run`).
 
 ## WebSocket board channels
 
