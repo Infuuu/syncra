@@ -139,6 +139,12 @@ Supported operation actions: `created`, `updated`, `moved`, `deleted` for `list`
 - Optimistic concurrency is enforced for update/move/delete sync actions using `payload.expectedVersion`.
 - On version conflict, `sync/push` returns `409` with the latest server snapshot in:
   - `conflict.serverSnapshot`
+- Rate limiting is enabled:
+  - `/api/auth`: fixed-window IP limit
+  - `/api/sync`: fixed-window user/IP limit
+- Request size guards are enabled:
+  - global JSON parser size limit (`JSON_BODY_LIMIT`)
+  - additional sync payload byte cap (`SYNC_BODY_MAX_BYTES`)
 
 ## Next Steps
 

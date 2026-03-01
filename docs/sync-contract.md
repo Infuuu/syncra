@@ -12,6 +12,7 @@ Authorization: Bearer <token>
 
 Pushes client operations. Each operation is validated, authorized, logged, and applied to canonical tables in one transaction.
 If any operation in the request fails, the full batch is rolled back (all-or-nothing).
+Route is rate-limited and payload-size limited server-side.
 
 ### Request
 
