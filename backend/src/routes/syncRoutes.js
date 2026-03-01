@@ -5,6 +5,7 @@ const boardMemberRepository = require('../repositories/boardMemberRepository');
 const syncRepository = require('../repositories/syncRepository');
 const { hasRequiredRole } = require('../services/authorizationService');
 const { validateSyncPushOperation } = require('../services/syncValidationService');
+const metricsService = require('../services/metricsService');
 const {
   SyncApplyError,
   SyncApplyConflictError,
@@ -134,6 +135,7 @@ router.post('/push', async (req, res) => {
     });
   } catch (error) {
     if (error instanceof SyncApplyConflictError) {
+      metricsService.incrementCounter('syncPushConflictsTotal', 1);
       return res.status(409).json({
         error: error.message,
         conflict: {

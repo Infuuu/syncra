@@ -420,6 +420,33 @@ test('Sync endpoints: push/pull are versioned, idempotent, and role-aware', asyn
         }
       ]
     });
+  const metricsBeforeConflictRes = await request(app).get('/metrics');
+  const conflictsBefore = metricsBeforeConflictRes.body.counters.syncPushConflictsTotal;
+
+  const staleUpdateConflictRes2 = await request(app)
+    .post('/api/sync/push')
+    .set('Authorization', `Bearer ${editorToken}`)
+    .send({
+      operations: [
+        {
+          clientOperationId: 'editor-op-2-stale-metrics',
+          boardId,
+          operationType: 'card.updated',
+          entityType: 'card',
+          entityId: '22222222-2222-4222-8222-222222222222',
+          payload: {
+            title: 'Should conflict for metric',
+            expectedVersion: 1
+          }
+        }
+      ]
+    });
+  assert.equal(staleUpdateConflictRes2.statusCode, 409);
+
+  const metricsAfterConflictRes = await request(app).get('/metrics');
+  const conflictsAfter = metricsAfterConflictRes.body.counters.syncPushConflictsTotal;
+  assert.ok(conflictsAfter >= conflictsBefore + 1);
+
   assert.equal(staleUpdateConflictRes.statusCode, 409);
   assert.equal(staleUpdateConflictRes.body.error, 'card version conflict');
   assert.equal(staleUpdateConflictRes.body.conflict.serverSnapshot.entityType, 'card');

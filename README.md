@@ -23,6 +23,7 @@ Server runs at `http://localhost:4000`.
 
 - `GET /` service status
 - `GET /health` backend + database health
+- `GET /metrics` backend uptime + in-memory counters
 - `POST /api/auth/register` create user + token
 - `POST /api/auth/login` login + token
 - `GET /api/boards` list boards (auth required)
@@ -45,6 +46,12 @@ Use header for protected routes:
 
 ```text
 Authorization: Bearer <token>
+```
+
+Every response includes:
+
+```text
+x-request-id: <uuid>
 ```
 
 ## Tests
@@ -147,6 +154,8 @@ Supported operation actions: `created`, `updated`, `moved`, `deleted` for `list`
 - Request size guards are enabled:
   - global JSON parser size limit (`JSON_BODY_LIMIT`)
   - additional sync payload byte cap (`SYNC_BODY_MAX_BYTES`)
+- Structured JSON logs are emitted for each request with requestId, method, path, statusCode, durationMs, userId, and ip.
+- `syncPushConflictsTotal` metric is tracked and exposed via `/metrics`.
 
 ## Next Steps
 

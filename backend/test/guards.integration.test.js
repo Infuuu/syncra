@@ -5,6 +5,7 @@ const request = require('supertest');
 
 const { createRateLimiter } = require('../src/middleware/rateLimitMiddleware');
 const { limitRequestBodyBytes } = require('../src/middleware/requestGuards');
+const app = require('../src/app');
 
 test('rate limiter returns 429 after limit is exceeded', async () => {
   const app = express();
@@ -43,4 +44,24 @@ test('request guard returns 413 for oversized request body', async () => {
   assert.equal(ok.statusCode, 200);
   assert.equal(tooLarge.statusCode, 413);
   assert.equal(tooLarge.body.error, 'payload_too_large');
+});
+
+test('request id header is attached to responses', async () => {
+  const app = express();
+  const { attachRequestId } = require('../src/middleware/requestContextMiddleware');
+  app.use(attachRequestId);
+  app.get('/ping', (_req, res) => res.json({ ok: true }));
+
+  const res = await request(app).get('/ping');
+  assert.equal(res.statusCode, 200);
+  assert.ok(typeof res.headers['x-request-id'] === 'string');
+  assert.ok(res.headers['x-request-id'].length > 0);
+});
+
+test('metrics endpoint exposes counters snapshot', async () => {
+  const res = await request(app).get('/metrics');
+  assert.equal(res.statusCode, 200);
+  assert.ok(typeof res.body.uptimeSeconds === 'number');
+  assert.ok(typeof res.body.counters.httpRequestsTotal === 'number');
+  assert.ok(typeof res.body.counters.syncPushConflictsTotal === 'number');
 });

@@ -8,6 +8,12 @@ All sync endpoints require:
 Authorization: Bearer <token>
 ```
 
+Every HTTP response includes:
+
+```text
+x-request-id: <uuid>
+```
+
 ## POST /api/sync/push
 
 Pushes client operations. Each operation is validated, authorized, logged, and applied to canonical tables in one transaction.
@@ -118,6 +124,7 @@ Returns operations visible to the caller, strictly after `sinceVersion`.
 `board.created` is intentionally not allowed via sync. Use `POST /api/boards`.
 Delete actions are implemented as tombstones in canonical tables (`is_deleted=true`, `deleted_at` set).
 Server tracks per-board latest operation cursor in `board_sync_state` to optimize pull/catch-up latest version resolution.
+Sync conflict count is exposed via `/metrics` in `counters.syncPushConflictsTotal`.
 
 ## WebSocket board channels
 

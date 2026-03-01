@@ -1,3 +1,5 @@
+const metricsService = require('../services/metricsService');
+
 const createRateLimiter = ({ windowMs, maxRequests, keyFn }) => {
   const buckets = new Map();
 
@@ -22,6 +24,7 @@ const createRateLimiter = ({ windowMs, maxRequests, keyFn }) => {
 
     if (current.count > maxRequests) {
       const retryAfterSeconds = Math.max(1, Math.ceil((current.resetAt - now) / 1000));
+      metricsService.incrementCounter('rateLimitExceededTotal', 1);
       res.setHeader('Retry-After', String(retryAfterSeconds));
       return res.status(429).json({ error: 'rate_limit_exceeded' });
     }

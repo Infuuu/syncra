@@ -3,6 +3,7 @@ const cors = require('cors');
 const env = require('./config/env');
 
 const healthRoutes = require('./routes/healthRoutes');
+const metricsRoutes = require('./routes/metricsRoutes');
 const authRoutes = require('./routes/authRoutes');
 const boardRoutes = require('./routes/boardRoutes');
 const boardMemberRoutes = require('./routes/boardMemberRoutes');
@@ -12,11 +13,14 @@ const syncRoutes = require('./routes/syncRoutes');
 const { requireAuth } = require('./middleware/authMiddleware');
 const { createRateLimiter } = require('./middleware/rateLimitMiddleware');
 const { limitRequestBodyBytes } = require('./middleware/requestGuards');
+const { attachRequestId, structuredRequestLogger } = require('./middleware/requestContextMiddleware');
 
 const app = express();
 app.locals.broadcastSyncOperation = () => {};
 
 app.use(cors());
+app.use(attachRequestId);
+app.use(structuredRequestLogger);
 app.use(express.json({ limit: env.jsonBodyLimit }));
 
 const authRateLimiter = createRateLimiter({
@@ -39,6 +43,7 @@ app.get('/', (_req, res) => {
 });
 
 app.use('/health', healthRoutes);
+app.use('/metrics', metricsRoutes);
 app.use('/api/auth', authRateLimiter, authRoutes);
 app.use('/api/boards', requireAuth, boardRoutes);
 app.use('/api/boards/:boardId/members', requireAuth, boardMemberRoutes);
