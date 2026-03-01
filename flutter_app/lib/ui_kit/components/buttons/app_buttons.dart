@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
-import '../theme/typography.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_theme.dart';
+import '../../theme/typography.dart';
 
 /// Primary action button (White background, Black text)
 class PrimaryButton extends StatelessWidget {

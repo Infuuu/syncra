@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/routing/app_router.dart';
 import 'ui_kit/theme/app_theme.dart';
 
 class SyncraApp extends ConsumerWidget {
@@ -8,16 +9,14 @@ class SyncraApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return MaterialApp(
+    final router = ref.watch(routerProvider);
+
+    return MaterialApp.router(
       title: 'Syncra',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.dark, // Force Dark Mode globally
       darkTheme: AppTheme.darkTheme,
-      home: const Scaffold(
-        body: Center(
-          child: Text('Syncra App Initialization Complete'),
-        ),
-      ),
+      routerConfig: router,
     );
   }
 }
