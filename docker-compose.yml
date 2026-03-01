@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: syncra-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: syncra
+    ports:
+      - "5432:5432"
+    volumes:
+      - syncra_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d syncra"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: syncra-backend
+    environment:
+      PORT: 4000
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/syncra
+      JWT_SECRET: replace_with_a_long_random_secret
+      ACCESS_TOKEN_EXPIRES_IN: 15m
+      REFRESH_TOKEN_TTL_DAYS: 30
+      JSON_BODY_LIMIT: 1mb
+      AUTH_RATE_WINDOW_MS: 600000
+      AUTH_RATE_MAX_REQUESTS: 30
+      SYNC_RATE_WINDOW_MS: 60000
+      SYNC_RATE_MAX_REQUESTS: 120
+      SYNC_BODY_MAX_BYTES: 262144
+      TOMBSTONE_RETENTION_DAYS: 30
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+
+volumes:
+  syncra_postgres_data:

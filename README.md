@@ -19,10 +19,22 @@ npm run dev
 
 Server runs at `http://localhost:4000`.
 
+Docker quick start:
+
+```bash
+docker compose up --build
+```
+
+This starts:
+- PostgreSQL on `localhost:5432`
+- Backend on `localhost:4000` (runs migrations on container startup)
+
 ## Basic API Endpoints
 
 - `GET /` service status
-- `GET /health` backend + database health
+- `GET /health/live` liveness probe
+- `GET /health/ready` readiness probe (includes DB check)
+- `GET /health` compatibility health endpoint (includes DB check)
 - `GET /metrics` backend uptime + in-memory counters
 - `GET /metrics/prometheus` Prometheus text exposition format
 - `POST /api/auth/register` create user + access/refresh token pair
@@ -180,6 +192,7 @@ Supported operation actions: `created`, `updated`, `moved`, `deleted` for `list`
   - additional sync payload byte cap (`SYNC_BODY_MAX_BYTES`)
 - Structured JSON logs are emitted for each request with requestId, method, path, statusCode, durationMs, userId, and ip.
 - `syncPushConflictsTotal` metric is tracked and exposed via `/metrics`.
+- Docker runtime is provided via `/Users/sharadsingh/Downloads/Resume Projects/syncra/docker-compose.yml` and `/Users/sharadsingh/Downloads/Resume Projects/syncra/backend/Dockerfile`.
 
 ## Next Steps
 

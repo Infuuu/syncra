@@ -84,3 +84,13 @@ test('auth register validates email format', async () => {
   assert.equal(res.statusCode, 400);
   assert.equal(res.body.error, 'email must be a valid email address');
 });
+
+test('health live and ready endpoints are exposed', async () => {
+  const live = await request(app).get('/health/live');
+  assert.equal(live.statusCode, 200);
+  assert.equal(live.body.ok, true);
+
+  const ready = await request(app).get('/health/ready');
+  assert.ok(ready.statusCode === 200 || ready.statusCode === 500);
+  assert.equal(typeof ready.body.ok, 'boolean');
+});
