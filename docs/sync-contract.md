@@ -150,6 +150,30 @@ Returns unresolved sync failures (dead-letter records) for the authenticated act
 
 When a later `POST /api/sync/push` succeeds with the same `clientOperationId`, the matching unresolved dead-letter record is auto-marked resolved.
 
+## POST /api/sync/failures/:failureId/retry
+
+Retries one unresolved dead-letter operation as the authenticated actor.
+
+If the retry succeeds, the failure is marked resolved. If retry fails again, `attemptCount` and last error fields are updated in-place on that failure record.
+
+### Response (201)
+
+```json
+{
+  "item": {
+    "status": "applied",
+    "clientOperationId": "deviceA-1001",
+    "version": 44,
+    "boardId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "operationType": "card.updated",
+    "entityType": "card",
+    "entityId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "createdAt": "2026-03-01T17:00:04.000Z"
+  },
+  "latestVersion": 44
+}
+```
+
 ## Supported operations
 
 - `list.created`: payload requires `title`; optional `orderIndex`

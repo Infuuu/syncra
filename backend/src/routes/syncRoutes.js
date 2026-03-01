@@ -43,6 +43,17 @@ const normalizePushOperation = (input) => {
   };
 };
 
+const mapSyncInsertResult = (inserted) => ({
+  status: inserted.status,
+  clientOperationId: inserted.operation.clientOperationId,
+  version: inserted.operation.version,
+  boardId: inserted.operation.boardId,
+  operationType: inserted.operation.operationType,
+  entityType: inserted.operation.entityType,
+  entityId: inserted.operation.entityId,
+  createdAt: inserted.operation.createdAt
+});
+
 router.post('/push', async (req, res) => {
   const operations = Array.isArray(req.body?.operations) ? req.body.operations : null;
   if (!operations) return badRequest(res, 'operations array is required');
@@ -98,16 +109,7 @@ router.post('/push', async (req, res) => {
 
     const results = [];
     for (const inserted of insertedResults) {
-      results.push({
-        status: inserted.status,
-        clientOperationId: inserted.operation.clientOperationId,
-        version: inserted.operation.version,
-        boardId: inserted.operation.boardId,
-        operationType: inserted.operation.operationType,
-        entityType: inserted.operation.entityType,
-        entityId: inserted.operation.entityId,
-        createdAt: inserted.operation.createdAt
-      });
+      results.push(mapSyncInsertResult(inserted));
 
       if (inserted.status === 'applied' && broadcastSyncOperation) {
         try {
@@ -206,6 +208,130 @@ router.get('/failures', async (req, res) => {
 
     return res.json({ items });
   } catch (error) {
+    return serverError(res, error.message);
+  }
+});
+
+router.post('/failures/:failureId/retry', async (req, res) => {
+  const failureId = Number(req.params?.failureId);
+  if (!Number.isInteger(failureId) || failureId < 1) {
+    return badRequest(res, 'failureId must be a positive integer');
+  }
+
+  try {
+    const failure = await syncFailureRepository.getOpenFailureByIdForActor({
+      actorUserId: req.auth.userId,
+      failureId
+    });
+    if (!failure) return notFound(res, 'sync failure not found');
+
+    if (failure.boardId) {
+      const board = await boardRepository.getBoardById(failure.boardId);
+      if (!board) return notFound(res, 'board not found');
+
+      const role = await boardMemberRepository.getBoardRole({
+        boardId: failure.boardId,
+        userId: req.auth.userId
+      });
+      if (!hasRequiredRole(role, 'editor')) {
+        return forbidden(res, `editor or owner role is required for board: ${failure.boardId}`);
+      }
+    }
+
+    const [inserted] = await syncRepository.applySyncOperationsBatch({
+      operations: [
+        {
+          boardId: failure.boardId,
+          actorUserId: req.auth.userId,
+          clientOperationId: failure.clientOperationId,
+          operationType: failure.operationType,
+          entityType: failure.entityType,
+          entityId: failure.entityId,
+          payload: failure.payload || {}
+        }
+      ],
+      applyCanonicalMutation: async (client, mappedOperation) => {
+        await applySyncOperationToCanonicalTables(client, mappedOperation);
+      }
+    });
+
+    const result = mapSyncInsertResult(inserted);
+
+    const broadcastSyncOperation =
+      typeof req.app?.locals?.broadcastSyncOperation === 'function'
+        ? req.app.locals.broadcastSyncOperation
+        : null;
+    if (inserted.status === 'applied' && broadcastSyncOperation) {
+      try {
+        broadcastSyncOperation({
+          version: inserted.operation.version,
+          boardId: inserted.operation.boardId,
+          actorUserId: inserted.operation.actorUserId,
+          clientOperationId: inserted.operation.clientOperationId,
+          operationType: inserted.operation.operationType,
+          entityType: inserted.operation.entityType,
+          entityId: inserted.operation.entityId,
+          payload: inserted.operation.payload,
+          createdAt: inserted.operation.createdAt
+        });
+      } catch (_error) {
+        // ignore websocket broadcast errors; HTTP mutation already committed
+      }
+    }
+
+    await syncFailureRepository.resolveSyncFailureById({
+      actorUserId: req.auth.userId,
+      failureId
+    });
+    if (inserted.operation.clientOperationId) {
+      await syncFailureRepository.resolveSyncFailureByClientOperation({
+        actorUserId: req.auth.userId,
+        clientOperationId: inserted.operation.clientOperationId
+      });
+    }
+
+    return res.status(201).json({
+      item: result,
+      latestVersion: result.version
+    });
+  } catch (error) {
+    if (error instanceof SyncApplyConflictError) {
+      await syncFailureRepository.markRetryFailureAttempt({
+        actorUserId: req.auth.userId,
+        failureId,
+        statusCode: 409,
+        errorCode: error.name,
+        errorMessage: error.message
+      });
+      metricsService.incrementCounter('syncPushConflictsTotal', 1);
+      return res.status(409).json({
+        error: error.message,
+        conflict: {
+          serverSnapshot: error.snapshot
+        }
+      });
+    }
+
+    if (error instanceof SyncApplyError) {
+      await syncFailureRepository.markRetryFailureAttempt({
+        actorUserId: req.auth.userId,
+        failureId,
+        statusCode: error.statusCode || 400,
+        errorCode: error.name,
+        errorMessage: error.message
+      });
+      if (error.statusCode === 404) return notFound(res, error.message);
+      if (error.statusCode === 403) return forbidden(res, error.message);
+      return badRequest(res, error.message);
+    }
+
+    await syncFailureRepository.markRetryFailureAttempt({
+      actorUserId: req.auth.userId,
+      failureId,
+      statusCode: 500,
+      errorCode: error.name || null,
+      errorMessage: error.message || 'internal_server_error'
+    });
     return serverError(res, error.message);
   }
 });

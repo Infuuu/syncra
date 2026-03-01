@@ -42,6 +42,7 @@ Server runs at `http://localhost:4000`.
 - `POST /api/sync/push` push client operations (auth required + editor/owner on each target board)
 - `GET /api/sync/pull?sinceVersion=0&boardId=<optional>&limit=<optional>` pull versioned operation log deltas for accessible boards
 - `GET /api/sync/failures?boardId=<optional>&limit=<optional>` list unresolved sync failures for current user
+- `POST /api/sync/failures/:failureId/retry` retry a dead-letter sync operation by id (auth required + editor/owner on target board)
 - Detailed sync payload contract and examples: `/Users/sharadsingh/Downloads/Resume Projects/syncra/docs/sync-contract.md`
 
 Use header for protected routes:
@@ -158,6 +159,7 @@ When sync operations are applied for a subscribed board, server broadcasts:
 Supported operation actions: `created`, `updated`, `moved`, `deleted` for `list` and `card`; `updated`, `deleted` for `board`.
 - `board.created` is intentionally rejected via sync; create boards with `POST /api/boards` so owner membership is created correctly.
 - Failed sync operations are tracked in dead-letter storage with `attemptCount` and can be resolved automatically when retry succeeds with same `clientOperationId`.
+- Dead-letter failures can also be replayed server-side with `POST /api/sync/failures/:failureId/retry`.
 - Optimistic concurrency is enforced for update/move/delete sync actions using `payload.expectedVersion`.
 - On version conflict, `sync/push` returns `409` with the latest server snapshot in:
   - `conflict.serverSnapshot`

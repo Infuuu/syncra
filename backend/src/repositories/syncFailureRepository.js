@@ -154,8 +154,77 @@ const listOpenFailuresByActor = async ({ actorUserId, boardId = null, limit = 10
   return rows.map(mapFailure);
 };
 
+const getOpenFailureByIdForActor = async ({ actorUserId, failureId }) => {
+  const id = Number(failureId);
+  if (!Number.isInteger(id) || id < 1) return null;
+
+  const db = requirePool();
+  const { rows } = await db.query(
+    `SELECT *
+     FROM sync_failed_operations
+     WHERE id = $1
+       AND actor_user_id = $2
+       AND resolved_at IS NULL
+     LIMIT 1`,
+    [id, actorUserId]
+  );
+
+  if (!rows[0]) return null;
+  return mapFailure(rows[0]);
+};
+
+const markRetryFailureAttempt = async ({
+  actorUserId,
+  failureId,
+  statusCode,
+  errorCode,
+  errorMessage
+}) => {
+  const id = Number(failureId);
+  if (!Number.isInteger(id) || id < 1) return null;
+
+  const db = requirePool();
+  const { rows } = await db.query(
+    `UPDATE sync_failed_operations
+     SET status_code = $3,
+         last_error_code = $4,
+         last_error_message = $5,
+         attempt_count = attempt_count + 1,
+         last_failed_at = now(),
+         resolved_at = NULL
+     WHERE id = $1
+       AND actor_user_id = $2
+       AND resolved_at IS NULL
+     RETURNING *`,
+    [id, actorUserId, statusCode, errorCode || null, errorMessage]
+  );
+
+  if (!rows[0]) return null;
+  return mapFailure(rows[0]);
+};
+
+const resolveSyncFailureById = async ({ actorUserId, failureId }) => {
+  const id = Number(failureId);
+  if (!Number.isInteger(id) || id < 1) return false;
+
+  const db = requirePool();
+  const { rowCount } = await db.query(
+    `UPDATE sync_failed_operations
+     SET resolved_at = now()
+     WHERE id = $1
+       AND actor_user_id = $2
+       AND resolved_at IS NULL`,
+    [id, actorUserId]
+  );
+
+  return rowCount > 0;
+};
+
 module.exports = {
   recordSyncFailure,
   resolveSyncFailureByClientOperation,
-  listOpenFailuresByActor
+  listOpenFailuresByActor,
+  getOpenFailureByIdForActor,
+  markRetryFailureAttempt,
+  resolveSyncFailureById
 };

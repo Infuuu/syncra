@@ -454,6 +454,104 @@ test('Sync endpoints: push/pull are versioned, idempotent, and role-aware', asyn
   assert.ok(pendingFailure.attemptCount >= 1);
   assert.equal(pendingFailure.statusCode, 409);
 
+  const missingListId = '88888888-8888-4888-8888-888888888888';
+  const retryEndpointCardId = '77777777-7777-4777-8777-777777777777';
+  const failedCreateForRetryEndpointRes = await request(app)
+    .post('/api/sync/push')
+    .set('Authorization', `Bearer ${editorToken}`)
+    .send({
+      operations: [
+        {
+          clientOperationId: 'editor-op-retry-endpoint-card-create',
+          boardId,
+          operationType: 'card.created',
+          entityType: 'card',
+          entityId: retryEndpointCardId,
+          payload: {
+            listId: missingListId,
+            title: 'Retry endpoint card',
+            description: 'will succeed after list exists',
+            orderIndex: 0
+          }
+        }
+      ]
+    });
+  assert.equal(failedCreateForRetryEndpointRes.statusCode, 404);
+
+  const failuresBeforeRetryEndpointRes = await request(app)
+    .get('/api/sync/failures')
+    .set('Authorization', `Bearer ${editorToken}`);
+  assert.equal(failuresBeforeRetryEndpointRes.statusCode, 200);
+  const retryEndpointFailure = failuresBeforeRetryEndpointRes.body.items.find(
+    (item) => item.clientOperationId === 'editor-op-retry-endpoint-card-create'
+  );
+  assert.ok(retryEndpointFailure);
+  const attemptsBeforeRetryEndpoint = retryEndpointFailure.attemptCount;
+
+  const retryEndpointStillFailsRes = await request(app)
+    .post(`/api/sync/failures/${retryEndpointFailure.id}/retry`)
+    .set('Authorization', `Bearer ${editorToken}`);
+  assert.equal(retryEndpointStillFailsRes.statusCode, 404);
+
+  const failuresAfterRetryFailRes = await request(app)
+    .get('/api/sync/failures')
+    .set('Authorization', `Bearer ${editorToken}`);
+  assert.equal(failuresAfterRetryFailRes.statusCode, 200);
+  const retryEndpointFailureAfterFailedRetry = failuresAfterRetryFailRes.body.items.find(
+    (item) => item.clientOperationId === 'editor-op-retry-endpoint-card-create'
+  );
+  assert.ok(retryEndpointFailureAfterFailedRetry);
+  assert.ok(retryEndpointFailureAfterFailedRetry.attemptCount >= attemptsBeforeRetryEndpoint + 1);
+
+  const createListForRetryRes = await request(app)
+    .post('/api/sync/push')
+    .set('Authorization', `Bearer ${editorToken}`)
+    .send({
+      operations: [
+        {
+          clientOperationId: 'editor-op-retry-endpoint-list-create',
+          boardId,
+          operationType: 'list.created',
+          entityType: 'list',
+          entityId: missingListId,
+          payload: {
+            title: 'Retry Endpoint List',
+            orderIndex: 99
+          }
+        }
+      ]
+    });
+  assert.equal(createListForRetryRes.statusCode, 201);
+
+  const retryEndpointSuccessRes = await request(app)
+    .post(`/api/sync/failures/${retryEndpointFailure.id}/retry`)
+    .set('Authorization', `Bearer ${editorToken}`);
+  assert.equal(retryEndpointSuccessRes.statusCode, 201);
+  assert.equal(retryEndpointSuccessRes.body.item.status, 'applied');
+  assert.equal(
+    retryEndpointSuccessRes.body.item.clientOperationId,
+    'editor-op-retry-endpoint-card-create'
+  );
+  assert.equal(retryEndpointSuccessRes.body.item.entityId, retryEndpointCardId);
+
+  const cardsAfterRetryEndpointSuccessRes = await request(app)
+    .get(`/api/cards/list/${missingListId}`)
+    .set('Authorization', `Bearer ${ownerToken}`);
+  assert.equal(cardsAfterRetryEndpointSuccessRes.statusCode, 200);
+  assert.ok(
+    cardsAfterRetryEndpointSuccessRes.body.items.some((item) => item.id === retryEndpointCardId)
+  );
+
+  const failuresAfterRetryEndpointSuccessRes = await request(app)
+    .get('/api/sync/failures')
+    .set('Authorization', `Bearer ${editorToken}`);
+  assert.equal(failuresAfterRetryEndpointSuccessRes.statusCode, 200);
+  assert.ok(
+    failuresAfterRetryEndpointSuccessRes.body.items.every(
+      (item) => item.clientOperationId !== 'editor-op-retry-endpoint-card-create'
+    )
+  );
+
   const retryResolvedRes = await request(app)
     .post('/api/sync/push')
     .set('Authorization', `Bearer ${editorToken}`)
