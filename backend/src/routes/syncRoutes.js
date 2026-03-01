@@ -49,7 +49,7 @@ router.post('/push', async (req, res) => {
 
   try {
     const roleCache = new Map();
-    const results = [];
+    const normalizedOperations = [];
     const broadcastSyncOperation =
       typeof req.app?.locals?.broadcastSyncOperation === 'function'
         ? req.app.locals.broadcastSyncOperation
@@ -76,20 +76,26 @@ router.post('/push', async (req, res) => {
       if (!hasRequiredRole(role, 'editor')) {
         return forbidden(res, `editor or owner role is required for board: ${operation.boardId}`);
       }
-
-      const inserted = await syncRepository.insertSyncOperation({
+      normalizedOperations.push({
         boardId: operation.boardId,
         actorUserId: req.auth.userId,
         clientOperationId: operation.clientOperationId,
         operationType: operation.operationType,
         entityType: operation.entityType,
         entityId: operation.entityId,
-        payload: operation.payload,
-        applyCanonicalMutation: async (client, mappedOperation) => {
-          await applySyncOperationToCanonicalTables(client, mappedOperation);
-        }
+        payload: operation.payload
       });
+    }
 
+    const insertedResults = await syncRepository.applySyncOperationsBatch({
+      operations: normalizedOperations,
+      applyCanonicalMutation: async (client, mappedOperation) => {
+        await applySyncOperationToCanonicalTables(client, mappedOperation);
+      }
+    });
+
+    const results = [];
+    for (const inserted of insertedResults) {
       results.push({
         status: inserted.status,
         clientOperationId: inserted.operation.clientOperationId,

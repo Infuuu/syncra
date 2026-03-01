@@ -425,6 +425,49 @@ test('Sync endpoints: push/pull are versioned, idempotent, and role-aware', asyn
   assert.equal(staleUpdateConflictRes.body.conflict.serverSnapshot.entityType, 'card');
   assert.equal(staleUpdateConflictRes.body.conflict.serverSnapshot.entity.version, 2);
 
+  const atomicRollbackRes = await request(app)
+    .post('/api/sync/push')
+    .set('Authorization', `Bearer ${editorToken}`)
+    .send({
+      operations: [
+        {
+          clientOperationId: 'editor-op-atomic-1',
+          boardId,
+          operationType: 'card.created',
+          entityType: 'card',
+          entityId: '66666666-6666-4666-8666-666666666666',
+          payload: {
+            listId,
+            title: 'Should rollback',
+            description: 'batch atomicity',
+            orderIndex: 9
+          }
+        },
+        {
+          clientOperationId: 'editor-op-atomic-2',
+          boardId,
+          operationType: 'card.updated',
+          entityType: 'card',
+          entityId: '22222222-2222-4222-8222-222222222222',
+          payload: {
+            title: 'Force conflict',
+            expectedVersion: 1
+          }
+        }
+      ]
+    });
+  assert.equal(atomicRollbackRes.statusCode, 409);
+
+  const cardsAfterAtomicFailureRes = await request(app)
+    .get(`/api/cards/list/${listId}`)
+    .set('Authorization', `Bearer ${ownerToken}`);
+  assert.equal(cardsAfterAtomicFailureRes.statusCode, 200);
+  assert.ok(
+    cardsAfterAtomicFailureRes.body.items.every(
+      (item) => item.id !== '66666666-6666-4666-8666-666666666666'
+    )
+  );
+
   const editorPushDeleteRes = await request(app)
     .post('/api/sync/push')
     .set('Authorization', `Bearer ${editorToken}`)

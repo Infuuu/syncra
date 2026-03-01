@@ -11,6 +11,7 @@ Authorization: Bearer <token>
 ## POST /api/sync/push
 
 Pushes client operations. Each operation is validated, authorized, logged, and applied to canonical tables in one transaction.
+If any operation in the request fails, the full batch is rolled back (all-or-nothing).
 
 ### Request
 

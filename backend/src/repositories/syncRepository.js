@@ -17,82 +17,77 @@ const mapSyncOperation = (row) => ({
   createdAt: row.created_at
 });
 
-const insertSyncOperation = async ({
-  boardId,
-  actorUserId,
-  clientOperationId,
-  operationType,
-  entityType,
-  entityId,
-  payload,
-  applyCanonicalMutation
-}) => {
+const applySyncOperationsBatch = async ({ operations, applyCanonicalMutation }) => {
   const db = requirePool();
   const client = await db.connect();
 
   try {
     await client.query('BEGIN');
+    const results = [];
 
-    const { rows } = await client.query(
-      `INSERT INTO sync_operations (
-         board_id,
-         actor_user_id,
-         client_operation_id,
-         operation_type,
-         entity_type,
-         entity_id,
-         payload
-       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
-       ON CONFLICT (actor_user_id, client_operation_id)
-       WHERE client_operation_id IS NOT NULL
-       DO NOTHING
-       RETURNING version, board_id, actor_user_id, client_operation_id, operation_type, entity_type, entity_id, payload, created_at`,
-      [
-        boardId,
-        actorUserId,
-        clientOperationId || null,
-        operationType,
-        entityType,
-        entityId,
-        JSON.stringify(payload || {})
-      ]
-    );
-
-    if (rows[0]) {
-      const mapped = mapSyncOperation(rows[0]);
-
-      if (typeof applyCanonicalMutation === 'function') {
-        await applyCanonicalMutation(client, mapped);
-      }
-
-      await client.query('COMMIT');
-      return {
-        status: 'applied',
-        operation: mapped
-      };
-    }
-
-    if (clientOperationId) {
-      const existing = await client.query(
-        `SELECT version, board_id, actor_user_id, client_operation_id, operation_type, entity_type, entity_id, payload, created_at
-         FROM sync_operations
-         WHERE actor_user_id = $1 AND client_operation_id = $2
-         LIMIT 1`,
-        [actorUserId, clientOperationId]
+    for (const op of operations) {
+      const { rows } = await client.query(
+        `INSERT INTO sync_operations (
+           board_id,
+           actor_user_id,
+           client_operation_id,
+           operation_type,
+           entity_type,
+           entity_id,
+           payload
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+         ON CONFLICT (actor_user_id, client_operation_id)
+         WHERE client_operation_id IS NOT NULL
+         DO NOTHING
+         RETURNING version, board_id, actor_user_id, client_operation_id, operation_type, entity_type, entity_id, payload, created_at`,
+        [
+          op.boardId,
+          op.actorUserId,
+          op.clientOperationId || null,
+          op.operationType,
+          op.entityType,
+          op.entityId,
+          JSON.stringify(op.payload || {})
+        ]
       );
 
-      if (existing.rows[0]) {
-        await client.query('COMMIT');
-        return {
-          status: 'duplicate',
-          operation: mapSyncOperation(existing.rows[0])
-        };
+      if (rows[0]) {
+        const mapped = mapSyncOperation(rows[0]);
+        if (typeof applyCanonicalMutation === 'function') {
+          await applyCanonicalMutation(client, mapped);
+        }
+
+        results.push({
+          status: 'applied',
+          operation: mapped
+        });
+        continue;
       }
+
+      if (op.clientOperationId) {
+        const existing = await client.query(
+          `SELECT version, board_id, actor_user_id, client_operation_id, operation_type, entity_type, entity_id, payload, created_at
+           FROM sync_operations
+           WHERE actor_user_id = $1 AND client_operation_id = $2
+           LIMIT 1`,
+          [op.actorUserId, op.clientOperationId]
+        );
+
+        if (existing.rows[0]) {
+          results.push({
+            status: 'duplicate',
+            operation: mapSyncOperation(existing.rows[0])
+          });
+          continue;
+        }
+      }
+
+      throw new Error('failed to insert sync operation');
     }
 
-    await client.query('ROLLBACK');
-    throw new Error('failed to insert sync operation');
+    await client.query('COMMIT');
+    return results;
   } catch (error) {
     try {
       await client.query('ROLLBACK');
@@ -103,6 +98,14 @@ const insertSyncOperation = async ({
   } finally {
     client.release();
   }
+};
+
+const insertSyncOperation = async (params) => {
+  const results = await applySyncOperationsBatch({
+    operations: [params],
+    applyCanonicalMutation: params.applyCanonicalMutation
+  });
+  return results[0];
 };
 
 const listOperationsForUserSinceVersion = async ({ userId, sinceVersion, boardId = null, limit = 500 }) => {
@@ -155,6 +158,7 @@ const getLatestVisibleVersionForUser = async ({ userId, sinceVersion = 0, boardI
 
 module.exports = {
   insertSyncOperation,
+  applySyncOperationsBatch,
   listOperationsForUserSinceVersion,
   getLatestVisibleVersionForUser
 };

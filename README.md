@@ -133,6 +133,7 @@ When sync operations are applied for a subscribed board, server broadcasts:
 - Role model: `viewer` (read), `editor` (read/write cards+lists), `owner` (full access + member management).
 - Sync operations are stored server-side with monotonic `version` for delta pulls.
 - `sync/push` now applies supported operations to canonical tables in the same DB transaction as operation-log insert.
+- `sync/push` is atomic per request batch: if any operation fails, the full batch is rolled back.
 Supported operation actions: `created`, `updated`, `moved`, `deleted` for `list` and `card`; `updated`, `deleted` for `board`.
 - `board.created` is intentionally rejected via sync; create boards with `POST /api/boards` so owner membership is created correctly.
 - Optimistic concurrency is enforced for update/move/delete sync actions using `payload.expectedVersion`.
