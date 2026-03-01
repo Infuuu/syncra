@@ -30,6 +30,23 @@ const getUserByEmail = async (email) => {
   };
 };
 
+const getUserById = async (id) => {
+  const db = requirePool();
+  const { rows } = await db.query(
+    `SELECT id, email, password_hash, display_name, created_at, updated_at
+     FROM users
+     WHERE id = $1`,
+    [id]
+  );
+
+  if (!rows[0]) return null;
+
+  return {
+    ...mapUser(rows[0]),
+    passwordHash: rows[0].password_hash
+  };
+};
+
 const createUser = async ({ email, passwordHash, displayName }) => {
   const db = requirePool();
   const { rows } = await db.query(
@@ -44,5 +61,6 @@ const createUser = async ({ email, passwordHash, displayName }) => {
 
 module.exports = {
   getUserByEmail,
+  getUserById,
   createUser
 };

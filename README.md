@@ -25,8 +25,10 @@ Server runs at `http://localhost:4000`.
 - `GET /health` backend + database health
 - `GET /metrics` backend uptime + in-memory counters
 - `GET /metrics/prometheus` Prometheus text exposition format
-- `POST /api/auth/register` create user + token
-- `POST /api/auth/login` login + token
+- `POST /api/auth/register` create user + access/refresh token pair
+- `POST /api/auth/login` login + access/refresh token pair
+- `POST /api/auth/refresh` rotate refresh token and issue a new access/refresh pair
+- `POST /api/auth/logout` revoke refresh token
 - `GET /api/boards` list boards (auth required)
 - `POST /api/boards` create board `{ "name": "Demo Board" }` (auth required)
 - `GET /api/boards/:boardId/me` get caller role for this board (auth required + membership)
@@ -153,6 +155,7 @@ When sync operations are applied for a subscribed board, server broadcasts:
 - If PostgreSQL is not running, endpoints will fail because DB is required.
 - New tables: `users`, `board_members` (plus `boards`, `lists`, `cards`).
 - Role model: `viewer` (read), `editor` (read/write cards+lists), `owner` (full access + member management).
+- Auth now uses short-lived access tokens plus rotating refresh tokens persisted server-side; logout revokes refresh tokens.
 - Sync operations are stored server-side with monotonic `version` for delta pulls.
 - `sync/push` now applies supported operations to canonical tables in the same DB transaction as operation-log insert.
 - `sync/push` is atomic per request batch: if any operation fails, the full batch is rolled back.

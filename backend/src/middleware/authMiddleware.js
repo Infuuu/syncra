@@ -1,5 +1,5 @@
 const { unauthorized } = require('../utils/http');
-const { verifyAuthToken } = require('../services/tokenService');
+const { verifyAccessToken } = require('../services/tokenService');
 
 const parseBearerToken = (headerValue) => {
   if (!headerValue) return null;
@@ -13,7 +13,7 @@ const requireAuth = (req, res, next) => {
   if (!token) return unauthorized(res, 'missing or invalid authorization header');
 
   try {
-    const payload = verifyAuthToken(token);
+    const payload = verifyAccessToken(token);
     req.auth = {
       userId: payload.sub,
       email: payload.email

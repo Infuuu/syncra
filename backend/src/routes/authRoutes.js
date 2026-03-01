@@ -1,11 +1,56 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const crypto = require('node:crypto');
 
 const userRepository = require('../repositories/userRepository');
-const { signAuthToken } = require('../services/tokenService');
+const refreshTokenRepository = require('../repositories/refreshTokenRepository');
+const { pool } = require('../db/pool');
+const {
+  signAccessToken,
+  generateRefreshToken,
+  hashRefreshToken,
+  calculateRefreshTokenExpiresAt
+} = require('../services/tokenService');
 const { badRequest, conflict, unauthorized, serverError } = require('../utils/http');
 
 const router = express.Router();
+
+const toAuthResponse = (user, accessToken, refreshToken) => ({
+  user: {
+    id: user.id,
+    email: user.email,
+    displayName: user.displayName,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt
+  },
+  token: accessToken,
+  accessToken,
+  refreshToken,
+  tokenType: 'Bearer'
+});
+
+const issueTokenPair = async ({ user, familyId = null, parentTokenId = null, client = null }) => {
+  const accessToken = signAccessToken(user);
+  const refreshToken = generateRefreshToken();
+  const refreshTokenHash = hashRefreshToken(refreshToken);
+  const refreshFamilyId = familyId || crypto.randomUUID();
+
+  const refreshTokenRecord = await refreshTokenRepository.createRefreshToken({
+    client,
+    userId: user.id,
+    tokenHash: refreshTokenHash,
+    familyId: refreshFamilyId,
+    expiresAt: calculateRefreshTokenExpiresAt(),
+    parentTokenId
+  });
+
+  return {
+    accessToken,
+    refreshToken,
+    refreshTokenId: refreshTokenRecord.id,
+    familyId: refreshFamilyId
+  };
+};
 
 router.post('/register', async (req, res) => {
   const email = String(req.body?.email || '').trim().toLowerCase();
@@ -23,9 +68,9 @@ router.post('/register', async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await userRepository.createUser({ email, passwordHash, displayName });
-    const token = signAuthToken(user);
+    const { accessToken, refreshToken } = await issueTokenPair({ user });
 
-    return res.status(201).json({ user, token });
+    return res.status(201).json(toAuthResponse(user, accessToken, refreshToken));
   } catch (error) {
     return serverError(res, error.message);
   }
@@ -45,18 +90,104 @@ router.post('/login', async (req, res) => {
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatches) return unauthorized(res, 'invalid email or password');
 
-    const token = signAuthToken(user);
+    const { accessToken, refreshToken } = await issueTokenPair({ user });
+    return res.json(toAuthResponse(user, accessToken, refreshToken));
+  } catch (error) {
+    return serverError(res, error.message);
+  }
+});
 
-    return res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        displayName: user.displayName,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
-      },
-      token
+router.post('/refresh', async (req, res) => {
+  const presentedRefreshToken = String(req.body?.refreshToken || '').trim();
+  if (!presentedRefreshToken) return badRequest(res, 'refreshToken is required');
+
+  const refreshTokenHash = hashRefreshToken(presentedRefreshToken);
+
+  if (!pool) return serverError(res, 'DATABASE_URL is required');
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const existing = await refreshTokenRepository.getRefreshTokenByHash({
+      client,
+      tokenHash: refreshTokenHash,
+      forUpdate: true
     });
+
+    if (!existing) {
+      await client.query('ROLLBACK');
+      return unauthorized(res, 'invalid refresh token');
+    }
+
+    if (existing.revokedAt) {
+      await refreshTokenRepository.revokeFamilyTokens({
+        client,
+        familyId: existing.familyId,
+        reason: 'refresh_token_reuse_detected'
+      });
+      await client.query('COMMIT');
+      return unauthorized(res, 'refresh token reuse detected');
+    }
+
+    if (new Date(existing.expiresAt).getTime() <= Date.now()) {
+      await refreshTokenRepository.revokeRefreshTokenById({
+        client,
+        tokenId: existing.id,
+        reason: 'refresh_token_expired'
+      });
+      await client.query('COMMIT');
+      return unauthorized(res, 'refresh token expired');
+    }
+
+    const user = await userRepository.getUserById(existing.userId);
+    if (!user) {
+      await refreshTokenRepository.revokeFamilyTokens({
+        client,
+        familyId: existing.familyId,
+        reason: 'user_not_found'
+      });
+      await client.query('COMMIT');
+      return unauthorized(res, 'invalid refresh token');
+    }
+
+    const { accessToken, refreshToken, refreshTokenId } = await issueTokenPair({
+      user,
+      familyId: existing.familyId,
+      parentTokenId: existing.id,
+      client
+    });
+
+    await refreshTokenRepository.revokeRefreshTokenById({
+      client,
+      tokenId: existing.id,
+      reason: 'refresh_token_rotated',
+      replacedByTokenId: refreshTokenId
+    });
+    await client.query('COMMIT');
+
+    return res.json(toAuthResponse(user, accessToken, refreshToken));
+  } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (_rollbackError) {
+      // no-op
+    }
+    return serverError(res, error.message);
+  } finally {
+    client.release();
+  }
+});
+
+router.post('/logout', async (req, res) => {
+  const presentedRefreshToken = String(req.body?.refreshToken || '').trim();
+  if (!presentedRefreshToken) return badRequest(res, 'refreshToken is required');
+
+  try {
+    const revoked = await refreshTokenRepository.revokeRefreshTokenByHash({
+      tokenHash: hashRefreshToken(presentedRefreshToken),
+      reason: 'logout'
+    });
+    return revoked ? res.status(204).send() : res.status(204).send();
   } catch (error) {
     return serverError(res, error.message);
   }

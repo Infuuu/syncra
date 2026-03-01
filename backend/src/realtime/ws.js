@@ -1,5 +1,5 @@
 const { WebSocketServer } = require('ws');
-const { verifyAuthToken } = require('../services/tokenService');
+const { verifyAccessToken } = require('../services/tokenService');
 const boardMemberRepository = require('../repositories/boardMemberRepository');
 const syncRepository = require('../repositories/syncRepository');
 
@@ -47,7 +47,7 @@ const setupWebSocket = (server) => {
     }
 
     try {
-      const payload = verifyAuthToken(token);
+      const payload = verifyAccessToken(token);
       socket.auth = {
         userId: payload.sub,
         email: payload.email
