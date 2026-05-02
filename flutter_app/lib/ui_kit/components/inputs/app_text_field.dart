@@ -39,31 +39,27 @@ class AppTextField extends StatelessWidget {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
       children: [
         if (hasLabel) ...[
           Text(
             labelText!,
-            style: AppTypography.bodySmall.copyWith(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
+            style: AppTypography.label.copyWith(color: AppColors.textSecondary),
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: AppSpacing.sm),
         ],
         TextFormField(
           controller: controller,
           focusNode: focusNode,
           obscureText: obscureText,
           keyboardType: keyboardType,
-          style: AppTypography.bodyMedium.copyWith(color: AppColors.textPrimary),
-          cursorColor: AppColors.textPrimary,
+          style: AppTypography.bodyMedium.copyWith(
+            color: AppColors.textPrimary,
+          ),
           decoration: InputDecoration(
             hintText: hintText,
             errorText: errorText,
             prefixIcon: prefixIcon,
             suffixIcon: suffixIcon,
-            // Uses global Input Theme from AppTheme
           ),
           validator: validator,
           onChanged: onChanged,

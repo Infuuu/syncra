@@ -17,8 +17,8 @@ class SyncraApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Syncra',
       debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.dark, // Force Dark Mode globally
-      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.light,
+      theme: AppTheme.lightTheme,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,

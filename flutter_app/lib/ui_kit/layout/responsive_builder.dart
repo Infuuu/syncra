@@ -6,7 +6,7 @@ class ResponsiveBuilder extends StatelessWidget {
   final Widget? tablet;
   final Widget desktop;
 
-  // Standard breakpoints 
+  // Standard breakpoints
   static const double mobileBreakpoint = 600;
   static const double tabletBreakpoint = 1024;
 
@@ -34,11 +34,11 @@ class ResponsiveBuilder extends StatelessWidget {
         if (constraints.maxWidth >= tabletBreakpoint) {
           return desktop;
         }
-        
+
         if (constraints.maxWidth >= mobileBreakpoint) {
           return tablet ?? desktop;
         }
-        
+
         return mobile;
       },
     );

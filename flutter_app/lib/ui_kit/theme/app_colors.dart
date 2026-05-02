@@ -1,32 +1,36 @@
 import 'package:flutter/material.dart';
 
-/// Predefined color palette used throughout the app.
-/// Strict Black/White matching the Notion-style clean aesthetic.
 class AppColors {
-  // Backgrounds
-  static const Color backgroundBlack = Color(0xFF000000);
-  static const Color surfaceOpaque = Color(0xFF191919); // Slightly elevated surfaces
-  static const Color surfaceElevated = Color(0xFF262626); // Modals/Dialogs
+  static const Color background = Color(0xFFF8F9FA);
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color surfaceLow = Color(0xFFF3F4F5);
+  static const Color surfaceHigh = Color(0xFFE7E8E9);
+  static const Color surfaceHighest = Color(0xFFE1E3E4);
+  static const Color surfaceTint = Color(0xFF4953BC);
 
-  // Text Colors
-  static const Color textPrimary = Color(0xFFFFFFFF); // High contrast text
-  static const Color textSecondary = Color(0xFFA0A0A0); // Dimmer, less emphasis
-  static const Color textTertiary = Color(0xFF737373); // Disabled/Placeholder
+  static const Color textPrimary = Color(0xFF191C1D);
+  static const Color textSecondary = Color(0xFF454653);
+  static const Color textMuted = Color(0xFF767684);
+  static const Color textInverse = Color(0xFFF0F1F2);
 
-  // Borders & Dividers
-  static const Color borderSubtle = Color(0xFF333333); // 1px borders for clean layout separations
+  static const Color primary = Color(0xFF4953BC);
+  static const Color primarySoft = Color(0xFF818CF8);
+  static const Color primaryFixed = Color(0xFFE0E0FF);
+  static const Color secondary = Color(0xFF525D83);
+  static const Color secondaryFixed = Color(0xFFDCE2FF);
+  static const Color tertiary = Color(0xFF7A5900);
+  static const Color tertiarySoft = Color(0xFFF7BD3E);
 
-  // Interactable
-  static const Color buttonPrimaryBg = Color(0xFFFFFFFF);
-  static const Color buttonPrimaryText = Color(0xFF000000);
-  
-  static const Color buttonSecondaryBg = Color(0xFF262626);
-  static const Color buttonSecondaryText = Color(0xFFFFFFFF); // White
+  static const Color border = Color(0xFFC6C5D5);
+  static const Color borderStrong = Color(0xFFB7B8C8);
 
-  // Status/Error
-  static const Color errorRed = Color(0xFFEB5757); // Notion's red hex
-  static const Color errorBg = Color(0xFF3A1E1E); // Subtle red background
+  static const Color success = Color(0xFF1D7C58);
+  static const Color warning = Color(0xFFB26D00);
+  static const Color error = Color(0xFFBA1A1A);
+  static const Color errorSoft = Color(0xFFFFDAD6);
 
-  // Overlay
-  static const Color overlay = Color(0x99000000); // 60% opacity black
+  static const Color glass = Color(0xCCFFFFFF);
+  static const Color glassStrong = Color(0xE6FFFFFF);
+  static const Color shadow = Color(0x14818CF8);
+  static const Color overlay = Color(0x14191C1D);
 }

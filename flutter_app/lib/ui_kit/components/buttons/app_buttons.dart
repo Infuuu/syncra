@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
-import '../../theme/app_theme.dart';
 import '../../theme/typography.dart';
 
-/// Primary action button (White background, Black text)
 class PrimaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final String label;
@@ -22,57 +20,20 @@ class PrimaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: 48,
       child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.buttonPrimaryBg,
-          foregroundColor: AppColors.buttonPrimaryText,
-          disabledBackgroundColor: AppColors.surfaceOpaque,
-          disabledForegroundColor: AppColors.textTertiary,
-          elevation: 0,
-          shape: const RoundedRectangleBorder(
-            borderRadius: AppRadius.borderSm,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        ),
         onPressed: isLoading ? null : onPressed,
-        child: _buildContent(),
+        child: _ButtonContent(
+          label: label,
+          isLoading: isLoading,
+          icon: icon,
+          color: Colors.white,
+        ),
       ),
     );
   }
-
-  Widget _buildContent() {
-    if (isLoading) {
-      return const SizedBox(
-        height: 16,
-        width: 16,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(AppColors.buttonPrimaryText),
-        ),
-      );
-    }
-    
-    if (icon != null) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconTheme(
-            data: const IconThemeData(size: 16),
-            child: icon!,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(label, style: AppTypography.labelLarge.copyWith(color: AppColors.buttonPrimaryText)),
-        ],
-      );
-    }
-    
-    return Text(label, style: AppTypography.labelLarge.copyWith(color: AppColors.buttonPrimaryText));
-  }
 }
 
-/// Secondary button (Dark gray background, White text)
 class SecondaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final String label;
@@ -90,59 +51,24 @@ class SecondaryButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
-      child: TextButton(
-        style: TextButton.styleFrom(
-          backgroundColor: AppColors.buttonSecondaryBg,
-          foregroundColor: AppColors.buttonSecondaryText,
-          disabledBackgroundColor: AppColors.surfaceOpaque,
-          disabledForegroundColor: AppColors.textTertiary,
-          shape: const RoundedRectangleBorder(
-            borderRadius: AppRadius.borderSm,
-            side: BorderSide(color: AppColors.borderSubtle, width: 1),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        ),
+      height: 48,
+      child: OutlinedButton(
         onPressed: isLoading ? null : onPressed,
-        child: _buildContent(),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: AppColors.glassStrong,
+          side: const BorderSide(color: AppColors.border),
+        ),
+        child: _ButtonContent(
+          label: label,
+          isLoading: isLoading,
+          icon: icon,
+          color: AppColors.textPrimary,
+        ),
       ),
     );
   }
-
-  Widget _buildContent() {
-    if (isLoading) {
-      return const SizedBox(
-        height: 16,
-        width: 16,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(AppColors.buttonSecondaryText),
-        ),
-      );
-    }
-    
-    final contentStyle = AppTypography.labelLarge.copyWith(color: AppColors.buttonSecondaryText);
-    
-    if (icon != null) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconTheme(
-            data: const IconThemeData(size: 16),
-            child: icon!,
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(label, style: contentStyle),
-        ],
-      );
-    }
-    
-    return Text(label, style: contentStyle);
-  }
 }
 
-/// Ghost / Text button (Transparent background, white text)
 class GhostButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final String label;
@@ -158,39 +84,85 @@ class GhostButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 32,
+      height: 40,
       child: TextButton(
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.textPrimary,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          shape: const RoundedRectangleBorder(
-            borderRadius: AppRadius.borderSm,
-          ),
-        ),
         onPressed: onPressed,
-        child: _buildContent(),
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.textSecondary,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              IconTheme(
+                data: const IconThemeData(
+                  color: AppColors.textSecondary,
+                  size: 16,
+                ),
+                child: icon!,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+            ],
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.button.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-  
-  Widget _buildContent() {
-    final style = AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w500);
-    
-    if (icon != null) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconTheme(
-            data: const IconThemeData(size: 16, color: AppColors.textSecondary),
-            child: icon!,
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Text(label, style: style),
-        ],
+}
+
+class _ButtonContent extends StatelessWidget {
+  final String label;
+  final bool isLoading;
+  final Widget? icon;
+  final Color color;
+
+  const _ButtonContent({
+    required this.label,
+    required this.isLoading,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(color),
+        ),
       );
     }
-    
-    return Text(label, style: style);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icon != null) ...[
+          IconTheme(data: IconThemeData(color: color, size: 18), child: icon!),
+          const SizedBox(width: AppSpacing.sm),
+        ],
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.button.copyWith(color: color),
+          ),
+        ),
+      ],
+    );
   }
 }
