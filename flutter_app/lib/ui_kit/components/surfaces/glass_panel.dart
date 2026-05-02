@@ -23,6 +23,12 @@ class GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SyncraColors.of(context);
+    final bg = backgroundColor ?? c.glass;
+    final borderColor = c.isDark
+        ? c.border.withValues(alpha: 0.5)
+        : Colors.white.withValues(alpha: 0.8);
+
     return ClipRRect(
       borderRadius: borderRadius,
       child: BackdropFilter(
@@ -31,14 +37,14 @@ class GlassPanel extends StatelessWidget {
           height: height,
           padding: padding,
           decoration: BoxDecoration(
-            color: backgroundColor ?? AppColors.glass,
+            color: bg,
             borderRadius: borderRadius,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
-            boxShadow: const [
+            border: Border.all(color: borderColor),
+            boxShadow: [
               BoxShadow(
-                color: AppColors.shadow,
+                color: c.shadow,
                 blurRadius: 30,
-                offset: Offset(0, 14),
+                offset: const Offset(0, 14),
               ),
             ],
           ),

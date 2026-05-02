@@ -9,52 +9,19 @@ class AmbientBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: const BoxDecoration(color: AppColors.background),
-          ),
-        ),
-        Positioned(
-          top: -180,
-          left: -140,
-          child: _Glow(
-            size: 520,
-            color: AppColors.primarySoft.withValues(alpha: 0.12),
-          ),
-        ),
-        Positioned(
-          bottom: -220,
-          right: -140,
-          child: _Glow(
-            size: 480,
-            color: AppColors.secondaryFixed.withValues(alpha: 0.36),
-          ),
-        ),
-        child,
-      ],
-    );
-  }
-}
-
-class _Glow extends StatelessWidget {
-  final double size;
-  final Color color;
-
-  const _Glow({required this.size, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
-        ),
+    final c = SyncraColors.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: c.isDark ? c.background : null,
+        gradient: c.isDark
+            ? null
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFFFD1EE), Color(0xFF9E84F5)], // Vibrant MeetCraft gradient
+              ),
       ),
+      child: child,
     );
   }
 }

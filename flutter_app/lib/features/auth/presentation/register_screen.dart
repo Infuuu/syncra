@@ -8,6 +8,8 @@ import '../../../ui_kit/theme/typography.dart';
 import '../../../ui_kit/theme/app_colors.dart';
 import '../../../ui_kit/components/buttons/app_buttons.dart';
 import '../../../ui_kit/components/inputs/app_text_field.dart';
+import '../../../ui_kit/components/layout/ambient_background.dart';
+import '../../../ui_kit/components/surfaces/glass_panel.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -26,11 +28,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
+    setState(() { _isLoading = true; _errorMessage = null; });
     try {
       await authService.register(
         email: _emailController.text.trim(),
@@ -39,12 +37,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       if (mounted) context.go('/');
     } on DioException catch (e) {
-      final msg =
-          (e.response?.data as Map?)?['error'] as String? ??
-          'Registration failed. Please try again.';
+      final msg = (e.response?.data as Map?)?['error'] as String? ?? 'Registration failed.';
       setState(() => _errorMessage = msg);
     } catch (_) {
-      setState(() => _errorMessage = 'Something went wrong. Please try again.');
+      setState(() => _errorMessage = 'Something went wrong.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -60,104 +56,79 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = SyncraColors.of(context);
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: MaxWidthContainer(
-            maxWidth: 400,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Create an account',
-                      style: AppTypography.h1,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      'Enter your details to get started',
-                      style: AppTypography.bodyMedium,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSpacing.xxl),
-                    AppTextField(
-                      controller: _nameController,
-                      labelText: 'Display Name',
-                      hintText: 'John Doe',
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Name is required';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    AppTextField(
-                      controller: _emailController,
-                      labelText: 'Email',
-                      hintText: 'name@example.com',
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Email is required';
-                        }
-                        if (!value.contains('@')) return 'Invalid email';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    AppTextField(
-                      controller: _passwordController,
-                      labelText: 'Password',
-                      obscureText: true,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Password is required';
-                        }
-                        if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
-                        return null;
-                      },
-                      onSubmitted: (_) => _handleRegister(),
-                    ),
-                    if (_errorMessage != null) ...[
-                      const SizedBox(height: AppSpacing.md),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.errorSoft,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppColors.error.withValues(alpha: 0.3),
+      body: AmbientBackground(
+        child: SafeArea(
+          child: Center(
+            child: MaxWidthContainer(
+              maxWidth: 420,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 32),
+                child: GlassPanel(
+                  padding: const EdgeInsets.all(36),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          width: 56, height: 56,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            gradient: const LinearGradient(colors: [Color(0xFF818CF8), Color(0xFF6366F1)]),
                           ),
+                          child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 28),
                         ),
-                        child: Text(
-                          _errorMessage!,
-                          style: AppTypography.bodySmall.copyWith(
-                            color: AppColors.error,
+                        const SizedBox(height: 24),
+                        Text('Create an account', style: Theme.of(context).textTheme.displayMedium),
+                        const SizedBox(height: 6),
+                        Text('Get started with Syncra', style: Theme.of(context).textTheme.bodyMedium),
+                        const SizedBox(height: 36),
+                        AppTextField(
+                          controller: _nameController, labelText: 'Display Name', hintText: 'John Doe',
+                          validator: (v) => (v == null || v.isEmpty) ? 'Name is required' : null,
+                        ),
+                        const SizedBox(height: 16),
+                        AppTextField(
+                          controller: _emailController, labelText: 'Email', hintText: 'name@example.com',
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (v) {
+                            if (v == null || v.isEmpty) return 'Email is required';
+                            if (!v.contains('@')) return 'Invalid email';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        AppTextField(
+                          controller: _passwordController, labelText: 'Password', obscureText: true,
+                          validator: (v) {
+                            if (v == null || v.isEmpty) return 'Password is required';
+                            if (v.length < 6) return 'At least 6 characters';
+                            return null;
+                          },
+                          onSubmitted: (_) => _handleRegister(),
+                        ),
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: c.errorSoft, borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: c.error.withValues(alpha: 0.3)),
+                            ),
+                            child: Text(_errorMessage!, style: AppTypography.bodySmall.copyWith(color: c.error),
+                                textAlign: TextAlign.center),
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.xl),
-                    PrimaryButton(
-                      onPressed: _handleRegister,
-                      label: 'Create Account',
-                      isLoading: _isLoading,
+                        ],
+                        const SizedBox(height: 28),
+                        PrimaryButton(onPressed: _handleRegister, label: 'Create Account', isLoading: _isLoading),
+                        const SizedBox(height: 16),
+                        GhostButton(onPressed: () => context.go('/login'), label: 'Already have an account? Sign in'),
+                      ],
                     ),
-                    const SizedBox(height: AppSpacing.lg),
-                    GhostButton(
-                      onPressed: () => context.go('/login'),
-                      label: 'Already have an account? Sign in',
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

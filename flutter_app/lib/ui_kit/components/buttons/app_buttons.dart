@@ -50,19 +50,20 @@ class SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SyncraColors.of(context);
     return SizedBox(
       height: 48,
       child: OutlinedButton(
         onPressed: isLoading ? null : onPressed,
         style: OutlinedButton.styleFrom(
-          backgroundColor: AppColors.glassStrong,
-          side: const BorderSide(color: AppColors.border),
+          backgroundColor: c.glassStrong,
+          side: BorderSide(color: c.border),
         ),
         child: _ButtonContent(
           label: label,
           isLoading: isLoading,
           icon: icon,
-          color: AppColors.textPrimary,
+          color: c.textPrimary,
         ),
       ),
     );
@@ -83,12 +84,13 @@ class GhostButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SyncraColors.of(context);
     return SizedBox(
       height: 40,
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.textSecondary,
+          foregroundColor: c.textSecondary,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         ),
         child: Row(
@@ -96,10 +98,7 @@ class GhostButton extends StatelessWidget {
           children: [
             if (icon != null) ...[
               IconTheme(
-                data: const IconThemeData(
-                  color: AppColors.textSecondary,
-                  size: 16,
-                ),
+                data: IconThemeData(color: c.textSecondary, size: 16),
                 child: icon!,
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -109,9 +108,7 @@ class GhostButton extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.button.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+                style: AppTypography.button.copyWith(color: c.textSecondary),
               ),
             ),
           ],

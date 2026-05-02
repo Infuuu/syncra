@@ -35,16 +35,14 @@ class AppTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = SyncraColors.of(context);
     final hasLabel = labelText != null && labelText!.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (hasLabel) ...[
-          Text(
-            labelText!,
-            style: AppTypography.label.copyWith(color: AppColors.textSecondary),
-          ),
+          Text(labelText!, style: AppTypography.label.copyWith(color: c.textSecondary)),
           const SizedBox(height: AppSpacing.sm),
         ],
         TextFormField(
@@ -52,9 +50,7 @@ class AppTextField extends StatelessWidget {
           focusNode: focusNode,
           obscureText: obscureText,
           keyboardType: keyboardType,
-          style: AppTypography.bodyMedium.copyWith(
-            color: AppColors.textPrimary,
-          ),
+          style: AppTypography.bodyMedium.copyWith(color: c.textPrimary),
           decoration: InputDecoration(
             hintText: hintText,
             errorText: errorText,
