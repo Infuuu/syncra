@@ -42,115 +42,146 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       color: c.surfaceLow,
       child: SafeArea(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: isDesktop ? 48 : 16, vertical: 16),
-          child: CustomScrollView(
-            slivers: [
-              // Top Bar
-              SliverToBoxAdapter(
-                child: GlassPanel(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Row(children: [
-                    Text('Notes', style: Theme.of(context).textTheme.headlineSmall),
-                    const Spacer(),
-                    Container(width: 8, height: 8, decoration: BoxDecoration(color: c.success, shape: BoxShape.circle)),
-                    const SizedBox(width: 6),
-                    Text('Autosave', style: AppTypography.label.copyWith(color: c.textMuted, fontSize: 11)),
-                  ]),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 28)),
-              // Hero search
-              SliverToBoxAdapter(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Notes', style: Theme.of(context).textTheme.displayLarge),
-                  const SizedBox(height: 8),
-                  Text('${notesValue.asData?.value.length ?? 0} notes in your workspace',
-                      style: Theme.of(context).textTheme.bodyLarge),
-                  const SizedBox(height: 20),
-                  GlassPanel(
-                    padding: const EdgeInsets.all(8),
-                    child: Row(children: [
-                      Padding(padding: const EdgeInsets.only(left: 12),
-                          child: Icon(Icons.search_rounded, color: c.textMuted, size: 22)),
-                      const SizedBox(width: 10),
-                      Expanded(child: TextField(
-                        controller: _searchController,
-                        onChanged: (v) => setState(() => _query = v),
-                        decoration: const InputDecoration(
-                          hintText: 'Search notes...',
-                          border: InputBorder.none, filled: false, contentPadding: EdgeInsets.zero,
-                        ),
-                      )),
-                      ElevatedButton.icon(
-                        onPressed: _createNote,
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: const Text('New Note'),
-                      ),
-                    ]),
-                  ),
-                ]),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 28)),
-              // Notes grid
-              notesValue.when(
-                loading: () => SliverToBoxAdapter(child: Center(
-                  child: Padding(padding: const EdgeInsets.all(48),
-                      child: CircularProgressIndicator(color: c.primary)),
-                )),
-                error: (e, _) => SliverToBoxAdapter(child: GlassPanel(child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 32),
-                  child: Column(children: [
-                    Icon(Icons.error_outline_rounded, size: 42, color: c.textMuted),
-                    const SizedBox(height: 12),
-                    Text(e.toString(), style: Theme.of(context).textTheme.bodyMedium),
-                  ]),
-                ))),
-                data: (notes) {
-                  final filtered = _filterNotes(notes);
-                  if (filtered.isEmpty) {
-                    return SliverToBoxAdapter(child: GlassPanel(child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40),
-                      child: Column(children: [
-                        Icon(Icons.note_alt_outlined, size: 52, color: c.textMuted),
-                        const SizedBox(height: 16),
-                        Text(_query.trim().isEmpty ? 'No notes yet' : 'No matching notes',
-                            style: Theme.of(context).textTheme.headlineSmall),
-                        const SizedBox(height: 8),
-                        Text(_query.trim().isEmpty ? 'Create a note to start writing' : 'Try a different search',
-                            style: Theme.of(context).textTheme.bodyMedium),
-                        if (_query.trim().isEmpty) ...[
-                          const SizedBox(height: 20),
-                          ElevatedButton.icon(
-                            onPressed: _createNote,
-                            icon: const Icon(Icons.add_rounded),
-                            label: const Text('Create Note'),
-                          ),
-                        ],
-                      ]),
-                    )));
-                  }
-                  return SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 360, crossAxisSpacing: 16,
-                      mainAxisSpacing: 16, childAspectRatio: 1.1,
+          padding: EdgeInsets.symmetric(horizontal: isDesktop ? 48 : 24, vertical: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header & Search
+              Row(
+                children: [
+                  Text('Notes', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w600, color: c.textPrimary, fontSize: 32)),
+                  const Spacer(),
+                  Container(
+                    width: 300,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: c.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: c.border.withValues(alpha: 0.5)),
                     ),
-                    delegate: SliverChildBuilderDelegate((ctx, index) {
-                      final note = filtered[index];
-                      final accent = AppPalette.columnAccentForIndex(index);
-                      return _NoteCard(
-                        note: note, accent: accent,
-                        onOpen: () => context.push('/notes/${note.id}'),
-                        onTogglePinned: () => ref.read(notesControllerProvider.notifier).togglePinned(note.id),
-                        onDelete: () => ref.read(notesControllerProvider.notifier).deleteNote(note.id),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (v) => setState(() => _query = v),
+                      decoration: InputDecoration(
+                        hintText: 'Search notes...',
+                        hintStyle: TextStyle(color: c.textMuted, fontSize: 14),
+                        prefixIcon: Icon(Icons.search_rounded, color: c.textMuted, size: 20),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    onPressed: _createNote,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('New Note'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      elevation: 0,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              
+              // Filters
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      _buildFilterChip(c, 'All Notes', true),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(c, 'Personal', false),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(c, 'Work', false),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(c, 'Ideas', false),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: c.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: c.border.withValues(alpha: 0.5)),
+                        ),
+                        child: Icon(Icons.grid_view_rounded, size: 20, color: c.textSecondary),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(Icons.view_list_rounded, size: 20, color: c.textMuted),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              
+              // Notes Grid
+              Expanded(
+                child: notesValue.when(
+                  loading: () => Center(child: CircularProgressIndicator(color: c.primary)),
+                  error: (e, _) => Center(child: Text(e.toString(), style: TextStyle(color: c.error))),
+                  data: (notes) {
+                    final filtered = _filterNotes(notes);
+                    if (filtered.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.note_alt_outlined, size: 52, color: c.textMuted),
+                            const SizedBox(height: 16),
+                            Text('No notes yet', style: Theme.of(context).textTheme.headlineSmall),
+                          ],
+                        ),
                       );
-                    }, childCount: filtered.length),
-                  );
-                },
+                    }
+                    return GridView.builder(
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 320, crossAxisSpacing: 16,
+                        mainAxisSpacing: 16, childAspectRatio: 1.1,
+                      ),
+                      itemCount: filtered.length,
+                      itemBuilder: (ctx, index) {
+                        final note = filtered[index];
+                        final accent = AppPalette.columnAccentForIndex(index);
+                        return _NoteCard(
+                          note: note, accent: accent,
+                          onOpen: () => context.push('/notes/${note.id}'),
+                          onTogglePinned: () => ref.read(notesControllerProvider.notifier).togglePinned(note.id),
+                          onDelete: () => ref.read(notesControllerProvider.notifier).deleteNote(note.id),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildFilterChip(SyncraColors c, String label, bool isSelected) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isSelected ? Colors.white : c.surface.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: isSelected ? c.primary.withValues(alpha: 0.2) : c.border.withValues(alpha: 0.5)),
+        boxShadow: isSelected ? [BoxShadow(color: c.primary.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))] : null,
+      ),
+      child: Text(label, style: AppTypography.label.copyWith(color: isSelected ? c.primary : c.textSecondary, fontSize: 13)),
     );
   }
 
@@ -186,59 +217,67 @@ class _NoteCardState extends State<_NoteCard> {
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        transform: _hovered ? (Matrix4.identity()..setTranslationRaw(0.0, -3.0, 0.0)) : Matrix4.identity(),
-        child: GlassPanel(
-          padding: EdgeInsets.zero,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            onTap: widget.onOpen,
-            child: Row(children: [
-              Container(width: 5, decoration: BoxDecoration(
-                color: widget.accent,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(AppRadius.lg), bottomLeft: Radius.circular(AppRadius.lg),
-                ),
-              )),
-              Expanded(child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Container(width: 36, height: 36, decoration: BoxDecoration(
-                      color: widget.accent.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ), child: Icon(
-                      widget.note.isPinned ? Icons.push_pin_rounded : Icons.description_outlined,
-                      color: widget.accent, size: 18,
-                    )),
-                    const Spacer(),
+        transform: _hovered ? (Matrix4.identity()..setTranslationRaw(0.0, -4.0, 0.0)) : Matrix4.identity(),
+        decoration: BoxDecoration(
+          color: c.surface.withValues(alpha: 0.65),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+          boxShadow: _hovered ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))] : null,
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: widget.onOpen,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(width: 8, height: 8, decoration: BoxDecoration(color: widget.accent, shape: BoxShape.circle)),
+                        const SizedBox(width: 8),
+                        Text('WORK', style: AppTypography.label.copyWith(color: c.textSecondary, fontSize: 11, letterSpacing: 1)),
+                      ],
+                    ),
                     PopupMenuButton<String>(
-                      tooltip: 'Actions', icon: Icon(Icons.more_horiz_rounded, color: c.textMuted),
+                      icon: Icon(Icons.more_horiz, color: c.textMuted, size: 20),
+                      padding: EdgeInsets.zero,
                       onSelected: (v) {
                         if (v == 'pin') widget.onTogglePinned();
                         if (v == 'delete') widget.onDelete();
                       },
                       itemBuilder: (_) => [
                         PopupMenuItem(value: 'pin', child: Text(widget.note.isPinned ? 'Unpin' : 'Pin')),
-                        const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                        const PopupMenuItem(value: 'delete', child: const Text('Delete')),
                       ],
                     ),
-                  ]),
-                  const SizedBox(height: 14),
-                  Text(widget.note.title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontSize: 16)),
-                  const SizedBox(height: 6),
-                  Expanded(child: Text(widget.note.preview, maxLines: 3, overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall)),
-                  const SizedBox(height: 10),
-                  Row(children: [
-                    Text('${widget.note.wordCount} words', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11)),
-                    const Spacer(),
-                    Text(_formatRelative(widget.note.updatedAt),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11)),
-                  ]),
-                ]),
-              )),
-            ]),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(widget.note.title, style: AppTypography.h3.copyWith(color: c.textPrimary, fontSize: 18), maxLines: 2, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: Text(widget.note.preview, style: AppTypography.bodyMedium.copyWith(color: c.textSecondary, height: 1.4), maxLines: 4, overflow: TextOverflow.ellipsis),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Container(
+                    padding: const EdgeInsets.only(top: 16),
+                    decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.3)))),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(_formatRelative(widget.note.updatedAt), style: TextStyle(color: c.textMuted, fontSize: 12)),
+                        Icon(widget.note.isPinned ? Icons.push_pin : Icons.push_pin_outlined, color: c.textMuted, size: 16),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

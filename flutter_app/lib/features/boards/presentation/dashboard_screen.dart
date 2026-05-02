@@ -232,38 +232,52 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top Row: Tasks, Recent Notes, Stats
+                  // Welcome Header
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Welcome back, Sarah', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w600, color: c.textPrimary, fontSize: 32)),
+                      const SizedBox(height: 8),
+                      Text('Here\'s what\'s happening today.', style: AppTypography.bodyLarge.copyWith(color: c.textSecondary)),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  // Top Row: Overview Chart + Mini Stats
+                  if (isDesktop)
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(flex: 8, child: _buildOverviewChart(c)),
+                          const SizedBox(width: 24),
+                          Expanded(flex: 4, child: _buildMiniStats(c)),
+                        ],
+                      ),
+                    )
+                  else ...[
+                    _buildOverviewChart(c),
+                    const SizedBox(height: 24),
+                    _buildMiniStats(c),
+                  ],
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Bottom Row: Today's Tasks + Recent Notes
                   if (isDesktop)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(child: _buildTasksCard(c)),
+                        Expanded(flex: 6, child: _buildTasksCard(c)),
                         const SizedBox(width: 24),
-                        Expanded(child: _buildRecentNotesCard(c, notes)),
-                        const SizedBox(width: 24),
-                        Expanded(child: _buildStatsCard(c)),
+                        Expanded(flex: 6, child: _buildRecentNotesCard(c, notes)),
                       ],
                     )
                   else ...[
                     _buildTasksCard(c),
                     const SizedBox(height: 24),
                     _buildRecentNotesCard(c, notes),
-                    const SizedBox(height: 24),
-                    _buildStatsCard(c),
                   ],
-                  
-                  const SizedBox(height: 32),
-                  
-                  // Boards Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Active Boards', style: Theme.of(context).textTheme.headlineSmall),
-                      TextButton(onPressed: () {}, child: const Text('See All')),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildBoardsGrid(c),
                 ],
               ),
             ),
@@ -275,11 +289,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildTasksCard(SyncraColors c) {
     return Container(
-      height: 320,
+      height: 380,
       decoration: BoxDecoration(
         color: c.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: c.border.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -288,21 +302,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text('Today\'s Tasks', style: AppTypography.h3.copyWith(color: c.textPrimary)),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: c.surfaceHighest, borderRadius: BorderRadius.circular(10)),
-                    child: Text('${_tasks.length}', style: AppTypography.label.copyWith(color: c.textSecondary)),
-                  ),
-                ],
-              ),
-              TextButton(
-                onPressed: () {},
-                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-                child: const Text('See All', style: TextStyle(fontSize: 13)),
+              Text('Today\'s Tasks', style: AppTypography.h2.copyWith(color: c.textPrimary, fontSize: 20)),
+              IconButton(
+                onPressed: _addTask,
+                icon: const Icon(Icons.add),
+                color: c.primary,
+                hoverColor: Colors.white.withValues(alpha: 0.4),
               ),
             ],
           ),
@@ -315,10 +320,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     itemBuilder: (context, index) {
                       final task = _tasks[index];
                       return AnimatedOpacity(
-                        opacity: task.isDone ? 0.3 : 1.0,
+                        key: ValueKey(task.id),
+                        opacity: task.isDone ? 0.6 : 1.0,
                         duration: const Duration(milliseconds: 300),
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 16.0),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: c.primary.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: c.border.withValues(alpha: 0.5)),
+                          ),
                           child: Row(
                             children: [
                               InkWell(
@@ -326,14 +338,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 child: Container(
                                   width: 20, height: 20,
                                   decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: task.isDone ? c.success : c.borderStrong, width: 2),
-                                    color: task.isDone ? c.success : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: c.borderStrong, width: 1.5),
+                                    color: task.isDone ? c.primarySoft : Colors.transparent,
                                   ),
                                   child: task.isDone ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
                                 ),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 16),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -346,23 +358,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                         decoration: task.isDone ? TextDecoration.lineThrough : null,
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text('Syncra Workspace', style: TextStyle(color: c.primary, fontSize: 12)),
+                                    if (!task.isDone) ...[
+                                      const SizedBox(height: 4),
+                                      Text('Due Today', style: TextStyle(color: c.textSecondary, fontSize: 11)),
+                                    ],
                                   ],
                                 ),
                               ),
+                              if (!task.isDone && index == 0)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(color: const Color(0xFFFFDAD6), borderRadius: BorderRadius.circular(4)),
+                                  child: const Text('High', style: TextStyle(color: Color(0xFF93000A), fontSize: 11, fontWeight: FontWeight.bold)),
+                                ),
                             ],
                           ),
                         ),
                       );
                     },
                   ),
-          ),
-          TextButton.icon(
-            onPressed: _addTask,
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('Add Task'),
-            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
           ),
         ],
       ),
@@ -371,11 +385,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildRecentNotesCard(SyncraColors c, List<NoteModel> notes) {
     return Container(
-      height: 320,
+      height: 380,
       decoration: BoxDecoration(
         color: c.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: c.border.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -384,21 +398,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text('Recent Notes', style: AppTypography.h3.copyWith(color: c.textPrimary)),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: c.surfaceHighest, borderRadius: BorderRadius.circular(10)),
-                    child: Text('${notes.length}', style: AppTypography.label.copyWith(color: c.textSecondary)),
-                  ),
-                ],
-              ),
+              Text('Recent Notes', style: AppTypography.h2.copyWith(color: c.textPrimary, fontSize: 20)),
               TextButton(
                 onPressed: () => context.go('/notes'),
-                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-                child: const Text('See All', style: TextStyle(fontSize: 13)),
+                child: Text('View All', style: TextStyle(color: c.primary, fontWeight: FontWeight.w500)),
               ),
             ],
           ),
@@ -406,35 +409,40 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           Expanded(
             child: notes.isEmpty
                 ? Center(child: Text('No notes yet', style: TextStyle(color: c.textMuted)))
-                : ListView.builder(
-                    itemCount: notes.take(3).length,
+                : GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 1.2,
+                    ),
+                    itemCount: notes.take(4).length,
                     itemBuilder: (context, index) {
                       final note = notes[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16.0),
-                        child: InkWell(
-                          onTap: () => context.push('/notes/${note.id}'),
-                          child: Row(
+                      return InkWell(
+                        onTap: () => context.push('/notes/${note.id}'),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: c.primary.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: c.border.withValues(alpha: 0.5)),
+                          ),
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 36, height: 36,
-                                decoration: BoxDecoration(
-                                  color: c.secondaryFixed,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(Icons.description_rounded, color: c.secondary, size: 18),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Icon(Icons.description, color: index % 2 == 0 ? const Color(0xFF8455EF) : const Color(0xFF6063EE), size: 20),
+                                  Text('2h ago', style: TextStyle(color: c.textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
+                                ],
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(height: 12),
+                              Text(note.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.textPrimary, fontWeight: FontWeight.w600, fontSize: 15)),
+                              const SizedBox(height: 4),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(note.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.textPrimary, fontWeight: FontWeight.w600)),
-                                    const SizedBox(height: 2),
-                                    Text(note.preview, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.textSecondary, fontSize: 13)),
-                                  ],
-                                ),
+                                child: Text(note.preview, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.textSecondary, fontSize: 11)),
                               ),
                             ],
                           ),
@@ -443,168 +451,152 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     },
                   ),
           ),
-          TextButton.icon(
-            onPressed: () => context.push('/notes/new'),
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('New Note'),
-            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 0)),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatsCard(SyncraColors c) {
+  Widget _buildOverviewChart(SyncraColors c) {
     return Container(
       height: 320,
       decoration: BoxDecoration(
         color: c.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: c.border.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))],
       ),
       padding: const EdgeInsets.all(24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Overview', style: AppTypography.h3.copyWith(color: c.textPrimary)),
+              Text('Overview Activity', style: AppTypography.h2.copyWith(color: c.textPrimary, fontSize: 20)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: c.primarySoft.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(99)),
+                child: Text('Weekly', style: AppTypography.label.copyWith(color: c.primary, fontSize: 11)),
+              ),
             ],
           ),
-          const Spacer(),
-          Center(
-            child: Stack(
-              alignment: Alignment.center,
+          const SizedBox(height: 24),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                SizedBox(
-                  width: 140, height: 140,
-                  child: CircularProgressIndicator(
-                    value: 0.7,
-                    strokeWidth: 20,
-                    backgroundColor: c.surfaceHighest,
-                    color: c.primarySoft,
-                  ),
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('${_boards.length}', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: c.textPrimary)),
-                    Text('Boards', style: TextStyle(fontSize: 12, color: c.textSecondary)),
-                  ],
-                ),
+                _buildBar(c, 0.4, false),
+                _buildBar(c, 0.6, false),
+                _buildBar(c, 0.3, false),
+                _buildBar(c, 0.8, true),
+                _buildBar(c, 0.5, false),
+                _buildBar(c, 0.7, false),
+                _buildBar(c, 0.45, false),
               ],
             ),
-          ),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildStatDot(c.primarySoft, 'Active'),
-              _buildStatDot(c.surfaceHighest, 'Archived'),
-            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatDot(Color color, String label) {
-    return Row(
-      children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 12)),
-      ],
+  Widget _buildBar(SyncraColors c, double heightFactor, bool isPeak) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: FractionallySizedBox(
+          heightFactor: heightFactor,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topCenter,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: isPeak ? c.primary.withValues(alpha: 0.8) : c.primary.withValues(alpha: 0.2),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                  boxShadow: isPeak ? [BoxShadow(color: c.primary.withValues(alpha: 0.3), blurRadius: 15)] : null,
+                ),
+              ),
+              if (isPeak)
+                Positioned(
+                  top: -28,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: c.textPrimary, borderRadius: BorderRadius.circular(4)),
+                    child: const Text('Peak', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildBoardsGrid(SyncraColors c) {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
-    if (_boards.isEmpty) return const Center(child: Text('No boards created.'));
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _boards.length,
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 340,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 1.5,
-      ),
-      itemBuilder: (context, index) {
-        final board = _boards[index];
-        return InkWell(
-          onTap: () => context.push('/boards/${board.id}'),
-          borderRadius: BorderRadius.circular(20),
+  Widget _buildMiniStats(SyncraColors c) {
+    return Column(
+      children: [
+        Expanded(
           child: Container(
             decoration: BoxDecoration(
               color: c.surface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: c.border.withValues(alpha: 0.5)),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))],
             ),
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    SizedBox(
-                      width: 50,
-                      height: 28,
-                      child: Stack(
-                        children: [
-                          const Positioned(
-                            left: 0,
-                            child: CircleAvatar(
-                              radius: 14,
-                              backgroundImage: NetworkImage('https://i.pravatar.cc/100?img=1'),
-                            ),
-                          ),
-                          const Positioned(
-                            left: 18,
-                            child: CircleAvatar(
-                              radius: 14,
-                              backgroundImage: NetworkImage('https://i.pravatar.cc/100?img=5'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: c.surfaceLow, borderRadius: BorderRadius.circular(8)),
-                      child: Text('Active', style: TextStyle(fontSize: 11, color: c.textSecondary)),
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(color: const Color(0xFF2170E4), borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.task_alt, color: Colors.white),
                     ),
+                    const SizedBox(width: 12),
+                    Text('Completed', style: AppTypography.bodyLarge.copyWith(color: c.textSecondary)),
                   ],
                 ),
-                const Spacer(),
-                Text(board.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 12),
-                Stack(
-                  children: [
-                    Container(height: 4, decoration: BoxDecoration(color: c.surfaceHighest, borderRadius: BorderRadius.circular(2))),
-                    FractionallySizedBox(
-                      widthFactor: 0.6,
-                      child: Container(height: 4, decoration: BoxDecoration(color: c.primary, borderRadius: BorderRadius.circular(2))),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Progress', style: TextStyle(fontSize: 11, color: c.textMuted)),
-                    Text('60%', style: TextStyle(fontSize: 11, color: c.textMuted, fontWeight: FontWeight.bold)),
-                  ],
-                ),
+                Text('128', style: AppTypography.display.copyWith(color: c.textPrimary, fontSize: 40, height: 1.1, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('+12% from last week', style: AppTypography.label.copyWith(color: const Color(0xFF8455EF), fontSize: 13)),
               ],
             ),
           ),
-        );
-      },
+        ),
+        const SizedBox(height: 24),
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: c.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))],
+            ),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(color: const Color(0xFF494BD6), borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.schedule, color: Colors.white),
+                    ),
+                    const SizedBox(width: 12),
+                    Text('Hours Logged', style: AppTypography.bodyLarge.copyWith(color: c.textSecondary)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text('34.5', style: AppTypography.display.copyWith(color: c.textPrimary, fontSize: 40, height: 1.1, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

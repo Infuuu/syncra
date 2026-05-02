@@ -145,44 +145,71 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
   Widget build(BuildContext context) {
     final c = SyncraColors.of(context);
     return Container(
-      color: c.surfaceLow,
+      color: Colors.transparent,
       child: SafeArea(
-        child: Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: GlassPanel(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded),
-                  onPressed: () => context.pop(),
-                ),
-                Expanded(
-                  child: _editingTitle
-                      ? TextField(
-                          controller: _titleController, autofocus: true,
-                          style: Theme.of(context).textTheme.headlineSmall,
-                          decoration: const InputDecoration(border: InputBorder.none, filled: false, contentPadding: EdgeInsets.zero),
-                          onSubmitted: (_) => setState(() => _editingTitle = false),
-                        )
-                      : GestureDetector(
-                          onTap: () => setState(() => _editingTitle = true),
-                          child: Text(_board?.name ?? 'Board',
-                            style: Theme.of(context).textTheme.headlineSmall,
-                            overflow: TextOverflow.ellipsis,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+              child: Row(
+                children: [
+                  InkWell(
+                    onTap: () => context.pop(),
+                    borderRadius: BorderRadius.circular(99),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.65),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+                      ),
+                      child: Icon(Icons.arrow_back, color: c.textPrimary, size: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _editingTitle
+                        ? TextField(
+                            controller: _titleController, autofocus: true,
+                            style: AppTypography.h1.copyWith(color: c.textPrimary, fontSize: 32, fontWeight: FontWeight.w600),
+                            decoration: const InputDecoration(border: InputBorder.none, filled: false, contentPadding: EdgeInsets.zero),
+                            onSubmitted: (_) => setState(() => _editingTitle = false),
+                          )
+                        : GestureDetector(
+                            onTap: () => setState(() => _editingTitle = true),
+                            child: Text(_board?.name ?? 'Board',
+                              style: AppTypography.h1.copyWith(color: c.textPrimary, fontSize: 32, fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                ),
-                TextButton.icon(
-                  onPressed: _addList,
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Add List'),
-                ),
-              ]),
+                  ),
+                  InkWell(
+                    onTap: _addList,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.add, color: c.primary, size: 18),
+                          const SizedBox(width: 8),
+                          Text('Add List', style: AppTypography.label.copyWith(color: c.primary, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Expanded(child: _buildBody(c)),
-        ]),
+            Expanded(child: _buildBody(c)),
+          ],
+        ),
       ),
     );
   }
@@ -245,58 +272,72 @@ class _KanbanColumn extends StatelessWidget {
       builder: (context, candidateData, _) {
         final isHovered = candidateData.isNotEmpty;
         return Container(
-          width: 300, margin: const EdgeInsets.only(right: 16),
+          width: 320,
+          margin: const EdgeInsets.only(right: 16),
           decoration: BoxDecoration(
-            color: isHovered ? accent.withValues(alpha: 0.08) : c.glass,
+            color: isHovered ? c.primary.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.65),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isHovered ? accent.withValues(alpha: 0.4) : c.border,
-              width: isHovered ? 1.5 : 1,
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Column header with accent
+              // Column header
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: c.border)),
+                  border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.2))),
                 ),
-                child: Row(children: [
-                  Container(width: 10, height: 10, decoration: BoxDecoration(
-                    color: accent, shape: BoxShape.circle,
-                  )),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(list.title, style: AppTypography.h3.copyWith(color: c.textPrimary),
-                      overflow: TextOverflow.ellipsis)),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(list.title, style: AppTypography.h2.copyWith(color: c.textPrimary, fontSize: 16)),
                     ),
-                    child: Text('${cards.length}', style: AppTypography.label.copyWith(color: accent)),
-                  ),
-                ]),
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: c.surfaceHighest,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text('${cards.length}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: c.textSecondary)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(Icons.more_horiz, color: c.textMuted, size: 20),
+                  ],
+                ),
               ),
               // Cards
-              Expanded(child: ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: cards.length,
-                itemBuilder: (_, i) => _CardTile(card: cards[i], accent: accent),
-              )),
-              // Add card
-              InkWell(
-                onTap: onAddCard,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(children: [
-                    Icon(Icons.add, size: 16, color: c.textMuted),
-                    const SizedBox(width: 6),
-                    Text('Add card', style: AppTypography.bodySmall.copyWith(color: c.textMuted)),
-                  ]),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: cards.length,
+                  itemBuilder: (_, i) => _CardTile(card: cards[i], accent: accent),
+                ),
+              ),
+              // Add card button
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: InkWell(
+                  onTap: onAddCard,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: c.textMuted.withValues(alpha: 0.3), style: BorderStyle.none),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add, size: 18, color: c.textMuted),
+                        const SizedBox(width: 8),
+                        Text('Add Task', style: AppTypography.label.copyWith(color: c.textMuted, fontSize: 14)),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -307,51 +348,92 @@ class _KanbanColumn extends StatelessWidget {
   }
 }
 
-class _CardTile extends StatelessWidget {
+class _CardTile extends StatefulWidget {
   final model.Card card;
   final Color accent;
   const _CardTile({required this.card, required this.accent});
 
   @override
+  State<_CardTile> createState() => _CardTileState();
+}
+
+class _CardTileState extends State<_CardTile> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final c = SyncraColors.of(context);
     return Draggable<model.Card>(
-      data: card,
+      data: widget.card,
       feedback: Material(color: Colors.transparent, child: _buildContent(c, isDragging: true)),
       childWhenDragging: Opacity(opacity: 0.3, child: _buildContent(c)),
-      child: _buildContent(c),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: _buildContent(c),
+      ),
     );
   }
 
   Widget _buildContent(SyncraColors c, {bool isDragging = false}) {
-    return Container(
-      width: isDragging ? 270 : null,
-      margin: const EdgeInsets.only(bottom: 8),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      transform: _hovered ? (Matrix4.identity()..setTranslationRaw(0.0, -2.0, 0.0)) : Matrix4.identity(),
+      width: isDragging ? 280 : null,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: c.surface,
+        color: Colors.white.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDragging ? accent.withValues(alpha: 0.5) : c.border),
-        boxShadow: isDragging ? [BoxShadow(color: c.shadow, blurRadius: 16, offset: const Offset(0, 8))] : null,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+        boxShadow: _hovered || isDragging
+            ? [BoxShadow(color: c.primary.withValues(alpha: 0.08), blurRadius: 24, offset: const Offset(0, 8))]
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 4))],
       ),
-      child: Row(children: [
-        Container(width: 4, height: 56, decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.7),
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(12), bottomLeft: Radius.circular(12),
-          ),
-        )),
-        Expanded(child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(card.title, style: AppTypography.bodyMedium.copyWith(color: c.textPrimary, fontWeight: FontWeight.w500)),
-            if (card.description != null && card.description!.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(card.description!, style: AppTypography.bodySmall.copyWith(color: c.textSecondary),
-                  maxLines: 2, overflow: TextOverflow.ellipsis),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFDAD6),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: const Text('HIGH PRIORITY', style: TextStyle(color: Color(0xFF93000A), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+              ),
             ],
-          ]),
-        )),
-      ]),
+          ),
+          const SizedBox(height: 12),
+          Text(widget.card.title, style: AppTypography.label.copyWith(color: _hovered ? c.primary : c.textPrimary, fontSize: 14)),
+          if (widget.card.description != null && widget.card.description!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(widget.card.description!, style: AppTypography.bodyMedium.copyWith(color: c.textSecondary, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.chat_bubble_outline, size: 16, color: c.textMuted),
+                  const SizedBox(width: 4),
+                  Text('3', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: c.textMuted)),
+                  const SizedBox(width: 12),
+                  Icon(Icons.attachment, size: 16, color: c.textMuted),
+                  const SizedBox(width: 4),
+                  Text('1', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: c.textMuted)),
+                ],
+              ),
+              const CircleAvatar(
+                radius: 12,
+                backgroundImage: NetworkImage('https://lh3.googleusercontent.com/aida-public/AB6AXuCsjm9E5SrW4wBtnQiUOd7hvBBUJrxKMKGAvPQTZqcKFkXSzu4RN0ti1Nzzof8WQB1QWoKPYncVl3sW0h5mhe5ZnYZ7u4wx0wr7jh1VUP-TA84FibCNziLm7GwjALb-F0hvCZ5Hz-LfoTjnUkSQz6iAfED2qha9Cw7uDHtpNKErhR-jACV6_PmdzmpwU0IPoJIeiOAgZqBCbesgvQ6RJHgV3rED-BRcuIlf4yrw9bPJJG5VyToqcYe17JZSqH5LzFaoC2NvhiFcM9lv'),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
