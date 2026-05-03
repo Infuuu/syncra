@@ -158,7 +158,7 @@ const listGlobalNotes = async ({ userId, limit = 100, offset = 0 }) => {
   return rows.map(mapNote);
 };
 
-const updateGlobalNote = async ({ client, noteId, userId, patch }) => {
+const updateGlobalNote = async ({ client, noteId, userId, patch, expectedVersion }) => {
   const db = resolveClient(client);
   const values = [noteId, userId];
   const updates = [];
@@ -180,12 +180,19 @@ const updateGlobalNote = async ({ client, noteId, userId, patch }) => {
 
   if (updates.length === 0) return null;
 
+  let versionCheck = '';
+  if (expectedVersion !== undefined && expectedVersion !== null) {
+    values.push(expectedVersion);
+    versionCheck = `AND version = $${values.length}`;
+  }
+
   const { rows } = await db.query(
     `UPDATE notes
      SET ${updates.join(', ')}, version = version + 1, updated_at = now()
      WHERE id = $1::uuid
        AND created_by = $2::uuid
        AND board_id IS NULL
+       ${versionCheck}
      RETURNING id, board_id, created_by, title, content, version, is_deleted, deleted_at, created_at, updated_at`,
     values
   );

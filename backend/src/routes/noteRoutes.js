@@ -54,7 +54,7 @@ router.post('/', async (req, res) => {
 // PATCH /api/notes/:id - Update a global note
 router.patch('/:id', async (req, res) => {
   try {
-    const { title, content, isDeleted } = req.body;
+    const { title, content, isDeleted, expectedVersion } = req.body;
     
     const patch = {};
     if (title !== undefined) patch.title = title;
@@ -68,10 +68,18 @@ router.patch('/:id', async (req, res) => {
     const updatedNote = await noteRepository.updateGlobalNote({
       noteId: req.params.id,
       userId: req.auth.userId,
-      patch
+      patch,
+      expectedVersion
     });
     
     if (!updatedNote) {
+      // If expectedVersion was provided, check if it was a conflict or if the note simply doesn't exist
+      const existingNote = await noteRepository.getNoteById({ noteId: req.params.id });
+      if (existingNote && existingNote.createdBy === req.auth.userId) {
+        if (expectedVersion !== undefined && existingNote.version !== expectedVersion) {
+           return res.status(409).json({ error: 'Conflict: Note was modified by another client', latestNote: existingNote });
+        }
+      }
       return res.status(404).json({ error: 'Note not found or unauthorized' });
     }
     
