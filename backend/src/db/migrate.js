@@ -55,17 +55,23 @@ const run = async () => {
   console.log('Migrations are up to date');
 };
 
-run()
-  .catch((error) => {
-    const message = error && error.message ? error.message : String(error);
-    console.error('Migration failed:', message);
-    if (error && error.code) {
-      console.error('Code:', error.code);
-    }
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    if (pool) {
-      await pool.end();
-    }
-  });
+if (require.main === module) {
+  run()
+    .catch((error) => {
+      const message = error && error.message ? error.message : String(error);
+      console.error('Migration failed:', message);
+      if (error && error.code) {
+        console.error('Code:', error.code);
+      }
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      if (pool) {
+        // Only end the pool if we are running as a standalone script
+        // In a server context, we want to keep the pool open
+        await pool.end();
+      }
+    });
+}
+
+module.exports = { run };
