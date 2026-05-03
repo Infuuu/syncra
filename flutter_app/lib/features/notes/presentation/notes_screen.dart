@@ -4,8 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/models/note_model.dart';
 
-import '../../../ui_kit/components/layout/ambient_background.dart';
-import '../../../ui_kit/components/surfaces/glass_panel.dart';
+
 import '../../../ui_kit/theme/app_colors.dart';
 import '../../../ui_kit/theme/typography.dart';
 import '../application/notes_controller.dart';
@@ -28,8 +27,16 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
   }
 
   Future<void> _createNote() async {
-    final note = await ref.read(notesControllerProvider.notifier).createDraft();
-    if (mounted) context.push('/notes/${note.id}');
+    try {
+      final note = await ref.read(notesControllerProvider.notifier).createDraft();
+      if (mounted) context.push('/notes/${note.id}');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create note: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -38,137 +45,205 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
     final notesValue = ref.watch(notesControllerProvider);
     final isDesktop = MediaQuery.sizeOf(context).width >= 900;
 
-    return Container(
-      color: c.surfaceLow,
-      child: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: isDesktop ? 48 : 24, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header & Search
-              Row(
+    return Stack(
+      children: [
+        Container(
+          color: c.surfaceLow,
+          child: SafeArea(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: isDesktop ? 48 : 16, vertical: isDesktop ? 24 : 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Notes', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w600, color: c.textPrimary, fontSize: 32)),
-                  const Spacer(),
-                  Container(
-                    width: 300,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: c.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: c.border.withValues(alpha: 0.5)),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (v) => setState(() => _query = v),
-                      decoration: InputDecoration(
-                        hintText: 'Search notes...',
-                        hintStyle: TextStyle(color: c.textMuted, fontSize: 14),
-                        prefixIcon: Icon(Icons.search_rounded, color: c.textMuted, size: 20),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  ElevatedButton.icon(
-                    onPressed: _createNote,
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text('New Note'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                      elevation: 0,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              
-              // Filters
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      _buildFilterChip(c, 'All Notes', true),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(c, 'Personal', false),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(c, 'Work', false),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(c, 'Ideas', false),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: c.surface,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: c.border.withValues(alpha: 0.5)),
+                  // Header & Search
+                  if (isDesktop)
+                    Row(
+                      children: [
+                        Text('Notes', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w600, color: c.textPrimary, fontSize: 32)),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: () => ref.read(notesControllerProvider.notifier).refresh(),
+                          icon: Icon(Icons.refresh_rounded, color: c.textMuted),
+                          tooltip: 'Refresh from cloud',
                         ),
-                        child: Icon(Icons.grid_view_rounded, size: 20, color: c.textSecondary),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 300,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: c.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: c.border.withValues(alpha: 0.5)),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (v) => setState(() => _query = v),
+                            decoration: InputDecoration(
+                              hintText: 'Search notes...',
+                              hintStyle: TextStyle(color: c.textMuted, fontSize: 14),
+                              prefixIcon: Icon(Icons.search_rounded, color: c.textMuted, size: 20),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                          ),
                         ),
-                        child: Icon(Icons.view_list_rounded, size: 20, color: c.textMuted),
-                      ),
-                    ],
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          onPressed: _createNote,
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('New Note'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                            elevation: 0,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Notes', style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w600, color: c.textPrimary, fontSize: 28)),
+                            Row(
+                              children: [
+                                IconButton(
+                                  onPressed: () => ref.read(notesControllerProvider.notifier).refresh(),
+                                  icon: Icon(Icons.refresh_rounded, color: c.textMuted),
+                                ),
+                                ElevatedButton.icon(
+                                  onPressed: _createNote,
+                                  icon: const Icon(Icons.add_rounded, size: 18),
+                                  label: const Text('New'),
+                                  style: ElevatedButton.styleFrom(elevation: 0),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: c.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: c.border.withValues(alpha: 0.5)),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (v) => setState(() => _query = v),
+                            decoration: InputDecoration(
+                              hintText: 'Search notes...',
+                              hintStyle: TextStyle(color: c.textMuted, fontSize: 14),
+                              prefixIcon: Icon(Icons.search_rounded, color: c.textMuted, size: 20),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: 24),
+                  
+                  // Filters
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterChip(c, 'All Notes', true),
+                        const SizedBox(width: 8),
+                        _buildFilterChip(c, 'Personal', false),
+                        const SizedBox(width: 8),
+                        _buildFilterChip(c, 'Work', false),
+                        const SizedBox(width: 8),
+                        _buildFilterChip(c, 'Ideas', false),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              
-              // Notes Grid
-              Expanded(
-                child: notesValue.when(
-                  loading: () => Center(child: CircularProgressIndicator(color: c.primary)),
-                  error: (e, _) => Center(child: Text(e.toString(), style: TextStyle(color: c.error))),
-                  data: (notes) {
-                    final filtered = _filterNotes(notes);
-                    if (filtered.isEmpty) {
-                      return Center(
+                  const SizedBox(height: 20),
+                  
+                  // Notes Grid
+                  Expanded(
+                    child: notesValue.when(
+                      loading: () => Center(child: CircularProgressIndicator(color: c.primary)),
+                      error: (e, _) => Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.note_alt_outlined, size: 52, color: c.textMuted),
+                            Icon(Icons.cloud_off_rounded, size: 48, color: c.textMuted),
                             const SizedBox(height: 16),
-                            Text('No notes yet', style: Theme.of(context).textTheme.headlineSmall),
+                            Text('Could not load notes', style: Theme.of(context).textTheme.titleMedium),
+                            const SizedBox(height: 8),
+                            ElevatedButton.icon(
+                              onPressed: () => ref.read(notesControllerProvider.notifier).refresh(),
+                              icon: const Icon(Icons.refresh_rounded, size: 18),
+                              label: const Text('Retry'),
+                            ),
                           ],
                         ),
-                      );
-                    }
-                    return GridView.builder(
-                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 320, crossAxisSpacing: 16,
-                        mainAxisSpacing: 16, childAspectRatio: 1.1,
                       ),
-                      itemCount: filtered.length,
-                      itemBuilder: (ctx, index) {
-                        final note = filtered[index];
-                        final accent = AppPalette.columnAccentForIndex(index);
-                        return _NoteCard(
-                          note: note, accent: accent,
-                          onOpen: () => context.push('/notes/${note.id}'),
-                          onTogglePinned: () => ref.read(notesControllerProvider.notifier).togglePinned(note.id),
-                          onDelete: () => ref.read(notesControllerProvider.notifier).deleteNote(note.id),
+                      data: (notes) {
+                        final filtered = _filterNotes(notes);
+                        if (filtered.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.note_alt_outlined, size: 52, color: c.textMuted),
+                                const SizedBox(height: 16),
+                                Text('No notes yet', style: Theme.of(context).textTheme.headlineSmall),
+                                const SizedBox(height: 8),
+                                Text('Tap + to create your first note', style: TextStyle(color: c.textSecondary)),
+                              ],
+                            ),
+                          );
+                        }
+                        return RefreshIndicator(
+                          onRefresh: () => ref.read(notesControllerProvider.notifier).refresh(),
+                          color: c.primary,
+                          backgroundColor: c.surface,
+                          child: GridView.builder(
+                            gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: isDesktop ? 320 : 200,
+                              crossAxisSpacing: isDesktop ? 16 : 12,
+                              mainAxisSpacing: isDesktop ? 16 : 12,
+                              childAspectRatio: isDesktop ? 1.1 : 0.9,
+                            ),
+                            itemCount: filtered.length,
+                            itemBuilder: (ctx, index) {
+                              final note = filtered[index];
+                              final accent = AppPalette.columnAccentForIndex(index);
+                              return _NoteCard(
+                                note: note, accent: accent,
+                                onOpen: () => context.push('/notes/${note.id}'),
+                                onTogglePinned: () => ref.read(notesControllerProvider.notifier).togglePinned(note.id),
+                                onDelete: () => ref.read(notesControllerProvider.notifier).deleteNote(note.id),
+                              );
+                            },
+                          ),
                         );
                       },
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
-      ),
+        // FAB for mobile
+        if (!isDesktop)
+          Positioned(
+            right: 20,
+            bottom: 20,
+            child: FloatingActionButton(
+              onPressed: _createNote,
+              backgroundColor: c.primary,
+              child: const Icon(Icons.add_rounded, color: Colors.white),
+            ),
+          ),
+      ],
     );
   }
 
@@ -251,7 +326,7 @@ class _NoteCardState extends State<_NoteCard> {
                       },
                       itemBuilder: (_) => [
                         PopupMenuItem(value: 'pin', child: Text(widget.note.isPinned ? 'Unpin' : 'Pin')),
-                        const PopupMenuItem(value: 'delete', child: const Text('Delete')),
+                        const PopupMenuItem(value: 'delete', child: Text('Delete')),
                       ],
                     ),
                   ],

@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../core/models/note_model.dart';
 
@@ -17,7 +17,7 @@ class LocalNoteRepository {
     }
 
     final decoded = jsonDecode(raw);
-    if (decoded is! List) return const [];
+    if (decoded is! List) return <NoteModel>[];
     return decoded
         .whereType<Map>()
         .map((item) => NoteModel.fromMap(Map<String, dynamic>.from(item)))
@@ -63,6 +63,18 @@ class LocalNoteRepository {
     await _persist(notes);
   }
 
+  Future<void> upsertNote(NoteModel note) async {
+    final notes = await listNotes();
+    final index = notes.indexWhere((n) => n.id == note.id);
+    if (index == -1) {
+      notes.insert(0, note);
+    } else {
+      notes[index] = note;
+    }
+    notes.sort(_sortNotes);
+    await _persist(notes);
+  }
+
   Future<void> deleteNote(String id) async {
     final notes = await listNotes();
     notes.removeWhere((note) => note.id == id);
@@ -91,7 +103,7 @@ class LocalNoteRepository {
 
   Future<List<NoteModel>> _migrateLegacyNotes(SharedPreferences prefs) async {
     final legacy = prefs.getStringList(_legacyKey) ?? const [];
-    if (legacy.isEmpty) return const [];
+    if (legacy.isEmpty) return <NoteModel>[];
 
     final now = DateTime.now();
     final notes = <NoteModel>[];
@@ -118,11 +130,9 @@ class LocalNoteRepository {
     return b.updatedAt.compareTo(a.updatedAt);
   }
 
-  String _generateId() {
-    final now = DateTime.now().microsecondsSinceEpoch;
-    final random = Random().nextInt(999999999).toRadixString(16);
-    return 'note_$now$random';
-  }
+  static const _uuid = Uuid();
+
+  String _generateId() => _uuid.v4();
 }
 
 const _emptyDocumentJson = '[{"insert":"\\n"}]';

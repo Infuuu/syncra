@@ -42,7 +42,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     try {
       NoteModel? note;
       if (widget.noteId != null) {
-        note = await ref.read(localNoteRepositoryProvider).getNote(widget.noteId!);
+        note = ref.read(noteByIdProvider(widget.noteId!));
+        if (note == null) {
+          note = await ref.read(localNoteRepositoryProvider).getNote(widget.noteId!);
+        }
       }
       note ??= await ref.read(notesControllerProvider.notifier).createDraft();
       if (!mounted) return;
@@ -111,37 +114,39 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     return Column(children: [
       // TopAppBar
       Container(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: c.surface.withValues(alpha: 0.65),
           border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.4))),
         ),
         child: Row(
           children: [
-            Text('Syncra Editor', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: c.textPrimary)),
-            Container(height: 16, width: 1, color: c.border, margin: const EdgeInsets.symmetric(horizontal: 16)),
-            Text(_isSaving ? 'Saving...' : 'Saved recently', style: AppTypography.label.copyWith(color: c.textSecondary)),
-            const Spacer(),
             IconButton(
-              icon: const Icon(Icons.share, size: 20),
-              onPressed: () {},
+              icon: const Icon(Icons.arrow_back_rounded, size: 20),
+              onPressed: () => Navigator.of(context).pop(),
               color: c.textSecondary,
-              hoverColor: c.primarySoft.withValues(alpha: 0.2),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
             ),
+            const SizedBox(width: 16),
+            Text('Editor', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: c.textPrimary)),
+            if (MediaQuery.sizeOf(context).width > 400) ...[
+              Container(height: 16, width: 1, color: c.border, margin: const EdgeInsets.symmetric(horizontal: 12)),
+              Text(_isSaving ? 'Saving...' : 'Saved', style: AppTypography.label.copyWith(color: c.textSecondary)),
+            ],
+            const Spacer(),
+            if (MediaQuery.sizeOf(context).width > 400)
+              IconButton(
+                icon: const Icon(Icons.share, size: 20),
+                onPressed: () {},
+                color: c.textSecondary,
+                hoverColor: c.primarySoft.withValues(alpha: 0.2),
+              ),
             IconButton(
               icon: const Icon(Icons.more_vert, size: 20),
               onPressed: () {},
               color: c.textSecondary,
               hoverColor: c.primarySoft.withValues(alpha: 0.2),
-            ),
-            Container(
-              margin: const EdgeInsets.only(left: 16),
-              padding: const EdgeInsets.only(left: 16),
-              decoration: BoxDecoration(border: Border(left: BorderSide(color: Colors.white.withValues(alpha: 0.5)))),
-              child: const CircleAvatar(
-                radius: 16,
-                backgroundImage: NetworkImage('https://lh3.googleusercontent.com/aida-public/AB6AXuAonzEXbQV6obIA0q8ui03N9u6QWh1cdJMBWsG09l7bAI0SaPIK6u1CbuLZvfsU7QeG72Vorb40o7k4ywIxA2BUwEESC1RVEi9WIi60ELZSx4iUQKcoU8Is5ixdMCarDHajeoz1IVXoIl8ZQOWIKvM8uCKv7d7efWHtzm0vHnIT_nRAFjplW--ksZRhK8WrY60qX7bmnOUpy56INC4lphoa_09VWFKC6r7uO4vvknsc65C3ZbYTztpnRQZaXsvDyjSuPWgKTepUWO9G'),
-              ),
             ),
           ],
         ),

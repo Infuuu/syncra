@@ -73,7 +73,7 @@ const updateNoteWithExpectedVersion = async ({ client, noteId, boardId, expected
     updates.push(`title = $${values.length}`);
   }
 
-  if (patch.content && typeof patch.content === 'object' && !Array.isArray(patch.content)) {
+  if (patch.content !== undefined && patch.content !== null) {
     values.push(JSON.stringify(patch.content));
     updates.push(`content = $${values.length}::jsonb`);
   }
@@ -168,7 +168,7 @@ const updateGlobalNote = async ({ client, noteId, userId, patch }) => {
     updates.push(`title = $${values.length}`);
   }
 
-  if (patch.content && typeof patch.content === 'object' && !Array.isArray(patch.content)) {
+  if (patch.content !== undefined && patch.content !== null) {
     values.push(JSON.stringify(patch.content));
     updates.push(`content = $${values.length}::jsonb`);
   }

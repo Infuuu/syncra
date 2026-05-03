@@ -163,66 +163,122 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         children: [
           // ── Header ──
           Padding(
-            padding: const EdgeInsets.fromLTRB(32, 32, 32, 24),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: c.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: c.border.withValues(alpha: 0.5)),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Search something or use AI',
-                        hintStyle: TextStyle(color: c.textMuted, fontSize: 14),
-                        prefixIcon: Icon(Icons.search_rounded, color: c.textMuted, size: 20),
-                        border: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        errorBorder: InputBorder.none,
-                        disabledBorder: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: EdgeInsets.fromLTRB(isDesktop ? 32 : 16, isDesktop ? 32 : 16, isDesktop ? 32 : 16, 24),
+            child: isDesktop
+              ? Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: c.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: c.border.withValues(alpha: 0.5)),
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Search something or use AI',
+                            hintStyle: TextStyle(color: c.textMuted, fontSize: 14),
+                            prefixIcon: Icon(Icons.search_rounded, color: c.textMuted, size: 20),
+                            border: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: _createBoard,
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('New Board'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        elevation: 0,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: c.surface,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: c.border.withValues(alpha: 0.5)),
+                      ),
+                      child: Icon(Icons.notifications_none_rounded, color: c.textSecondary, size: 20),
+                    ),
+                    const SizedBox(width: 16),
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: c.primarySoft,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(child: Text('JS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                    ),
+                  ],
+                )
+              : Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _createBoard,
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('New Board'),
+                          style: ElevatedButton.styleFrom(elevation: 0),
+                        ),
+                        Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: c.surface,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: c.border.withValues(alpha: 0.5)),
+                              ),
+                              child: Icon(Icons.notifications_none_rounded, color: c.textSecondary, size: 18),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(color: c.primarySoft, shape: BoxShape.circle),
+                              child: const Center(child: Text('JS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: c.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: c.border.withValues(alpha: 0.5)),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search...',
+                          hintStyle: TextStyle(color: c.textMuted, fontSize: 14),
+                          prefixIcon: Icon(Icons.search_rounded, color: c.textMuted, size: 20),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                ElevatedButton.icon(
-                  onPressed: _createBoard,
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('New Board'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                    elevation: 0,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: c.surface,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: c.border.withValues(alpha: 0.5)),
-                  ),
-                  child: Icon(Icons.notifications_none_rounded, color: c.textSecondary, size: 20),
-                ),
-                const SizedBox(width: 16),
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: c.primarySoft,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(child: Text('JS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                ),
-              ],
-            ),
           ),
           
           // ── Scrollable Content ──

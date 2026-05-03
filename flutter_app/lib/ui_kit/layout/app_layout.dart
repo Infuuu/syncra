@@ -47,7 +47,117 @@ class AppLayout extends ConsumerWidget {
                     ),
                   ),
                 )
-              : child, // On mobile, just show content full screen (we can add a drawer later if needed)
+              : child,
+        ),
+      ),
+      // Bottom Navigation Bar for mobile
+      bottomNavigationBar: isDesktop
+          ? null
+          : _MobileBottomNav(currentRoute: currentRoute),
+    );
+  }
+}
+
+class _MobileBottomNav extends StatelessWidget {
+  final String currentRoute;
+
+  const _MobileBottomNav({required this.currentRoute});
+
+  int get _currentIndex {
+    if (currentRoute == '/') return 0;
+    if (currentRoute.startsWith('/notes')) return 1;
+    if (currentRoute.startsWith('/boards')) return 2;
+    return 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SyncraColors.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: c.surface,
+        border: Border(top: BorderSide(color: c.border.withValues(alpha: 0.3))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _MobileNavItem(
+                icon: Icons.dashboard_rounded,
+                label: 'Home',
+                isSelected: _currentIndex == 0,
+                onTap: () => context.go('/'),
+              ),
+              _MobileNavItem(
+                icon: Icons.note_alt_rounded,
+                label: 'Notes',
+                isSelected: _currentIndex == 1,
+                onTap: () => context.go('/notes'),
+              ),
+              _MobileNavItem(
+                icon: Icons.view_kanban_rounded,
+                label: 'Boards',
+                isSelected: _currentIndex == 2,
+                onTap: () => context.go('/boards'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileNavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _MobileNavItem({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = SyncraColors.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 24,
+              color: isSelected ? c.primary : c.textMuted,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? c.primary : c.textMuted,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -113,11 +223,8 @@ class _Sidebar extends ConsumerWidget {
           _NavItem(
             icon: Icons.view_kanban_rounded,
             label: 'Boards',
-            isSelected: currentRoute.startsWith('/boards'),
-            onTap: () {
-              // Usually we'd go to a boards list, but for now we'll stay on dashboard
-              if (currentRoute != '/') context.go('/');
-            },
+            isSelected: currentRoute == '/boards' || (currentRoute.startsWith('/boards/') && currentRoute != '/'),
+            onTap: () => context.go('/boards'),
           ),
           const Spacer(),
           Padding(
@@ -166,7 +273,7 @@ class _Sidebar extends ConsumerWidget {
             icon: Icons.settings_rounded,
             label: 'Settings',
             isSelected: false,
-            onTap: () => ref.read(themeModeProvider.notifier).toggle(), // Use settings as theme toggle for now
+            onTap: () => ref.read(themeModeProvider.notifier).toggle(),
           ),
           const SizedBox(height: 24),
         ],

@@ -6,6 +6,7 @@ import '../../core/storage/token_storage.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/boards/presentation/dashboard_screen.dart';
+import '../../features/boards/presentation/boards_list_screen.dart';
 import '../../features/boards/presentation/board_detail_screen.dart';
 import '../../features/notes/presentation/notes_screen.dart';
 import '../../features/notes/presentation/note_editor_screen.dart';
@@ -35,6 +36,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
         routes: [
           GoRoute(path: '/', builder: (context, state) => const DashboardScreen()),
+          GoRoute(path: '/boards', builder: (context, state) => const BoardsListScreen()),
           GoRoute(
             path: '/boards/:boardId',
             builder: (context, state) {
