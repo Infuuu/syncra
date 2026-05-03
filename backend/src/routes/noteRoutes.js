@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
     res.json({ items: notes });
   } catch (err) {
     console.error('Error fetching global notes:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: err.message, stack: err.stack });
   }
 });
 
@@ -47,7 +47,7 @@ router.post('/', async (req, res) => {
     res.status(201).json(newNote);
   } catch (err) {
     console.error('Error creating global note:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: err.message, stack: err.stack });
   }
 });
 
@@ -78,7 +78,7 @@ router.patch('/:id', async (req, res) => {
     res.json(updatedNote);
   } catch (err) {
     console.error('Error updating global note:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: err.message, stack: err.stack });
   }
 });
 
@@ -98,7 +98,7 @@ router.delete('/:id', async (req, res) => {
     res.json({ message: 'Note deleted' });
   } catch (err) {
     console.error('Error deleting global note:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: err.message, stack: err.stack });
   }
 });
 
