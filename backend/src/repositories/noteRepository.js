@@ -28,9 +28,9 @@ const createNote = async ({ client, noteInput }) => {
      RETURNING id, board_id, created_by, title, content, version, is_deleted, deleted_at, created_at, updated_at`,
     [
       noteInput.id,
-      noteInput.boardId,
+      noteInput.boardId || null,
       noteInput.createdBy,
-      noteInput.title,
+      noteInput.title || '',
       JSON.stringify(noteInput.content || {})
     ]
   );
@@ -143,6 +143,56 @@ const listBoardNotes = async ({ boardId, limit = 100, offset = 0, cursor = null 
   return rows.map(mapNote);
 };
 
+const listGlobalNotes = async ({ userId, limit = 100, offset = 0 }) => {
+  const db = requirePool();
+  const { rows } = await db.query(
+    `SELECT id, board_id, created_by, title, content, version, is_deleted, deleted_at, created_at, updated_at
+     FROM notes
+     WHERE created_by = $1::uuid
+       AND board_id IS NULL
+       AND is_deleted = FALSE
+     ORDER BY updated_at DESC, id DESC
+     LIMIT $2 OFFSET $3`,
+    [userId, limit, offset]
+  );
+  return rows.map(mapNote);
+};
+
+const updateGlobalNote = async ({ client, noteId, userId, patch }) => {
+  const db = resolveClient(client);
+  const values = [noteId, userId];
+  const updates = [];
+
+  if (typeof patch.title === 'string') {
+    values.push(patch.title.trim());
+    updates.push(`title = $${values.length}`);
+  }
+
+  if (patch.content && typeof patch.content === 'object' && !Array.isArray(patch.content)) {
+    values.push(JSON.stringify(patch.content));
+    updates.push(`content = $${values.length}::jsonb`);
+  }
+  
+  if (patch.isDeleted !== undefined) {
+      values.push(patch.isDeleted);
+      updates.push(`is_deleted = $${values.length}`);
+  }
+
+  if (updates.length === 0) return null;
+
+  const { rows } = await db.query(
+    `UPDATE notes
+     SET ${updates.join(', ')}, version = version + 1, updated_at = now()
+     WHERE id = $1::uuid
+       AND created_by = $2::uuid
+       AND board_id IS NULL
+     RETURNING id, board_id, created_by, title, content, version, is_deleted, deleted_at, created_at, updated_at`,
+    values
+  );
+
+  return rows[0] ? mapNote(rows[0]) : null;
+};
+
 const listBoardNotesSinceVersion = async ({ client, boardId, sinceVersion, limit = 500 }) => {
   const db = resolveClient(client);
   const { rows } = await db.query(
@@ -164,5 +214,7 @@ module.exports = {
   updateNoteWithExpectedVersion,
   softDeleteNoteWithExpectedVersion,
   listBoardNotes,
-  listBoardNotesSinceVersion
+  listBoardNotesSinceVersion,
+  listGlobalNotes,
+  updateGlobalNote
 };

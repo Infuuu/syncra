@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import '../storage/token_storage.dart';
 
-const _baseUrl = 'http://localhost:4000/api';
+const _baseUrl = String.fromEnvironment('API_URL', defaultValue: 'http://localhost:4000/api');
 
 Dio createApiClient() {
   final dio = Dio(

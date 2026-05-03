@@ -12,6 +12,7 @@ const boardMemberRoutes = require('./routes/boardMemberRoutes');
 const listRoutes = require('./routes/listRoutes');
 const cardRoutes = require('./routes/cardRoutes');
 const syncRoutes = require('./routes/syncRoutes');
+const noteRoutes = require('./routes/noteRoutes');
 const { requireAuth } = require('./middleware/authMiddleware');
 const { createRateLimiter } = require('./middleware/rateLimitMiddleware');
 const { limitRequestBodyBytes } = require('./middleware/requestGuards');
@@ -54,6 +55,7 @@ app.use('/api/boards/:boardId/members', requireAuth, boardMemberRoutes);
 app.use('/api/lists', requireAuth, listRoutes);
 app.use('/api/cards', requireAuth, cardRoutes);
 app.use('/api/sync', requireAuth, syncRateLimiter, limitRequestBodyBytes(env.syncBodyMaxBytes), syncRoutes);
+app.use('/api/notes', requireAuth, noteRoutes);
 
 app.use((error, _req, res, next) => {
   if (error && error.type === 'entity.too.large') {
