@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
     const offset = parseInt(req.query.offset, 10) || 0;
     
     const notes = await noteRepository.listGlobalNotes({
-      userId: req.user.id,
+      userId: req.auth.userId,
       limit,
       offset
     });
@@ -38,7 +38,7 @@ router.post('/', async (req, res) => {
       noteInput: {
         id,
         boardId: null,
-        createdBy: req.user.id,
+        createdBy: req.auth.userId,
         title: title || '',
         content: content || {}
       }
@@ -67,7 +67,7 @@ router.patch('/:id', async (req, res) => {
     
     const updatedNote = await noteRepository.updateGlobalNote({
       noteId: req.params.id,
-      userId: req.user.id,
+      userId: req.auth.userId,
       patch
     });
     
@@ -87,7 +87,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const updatedNote = await noteRepository.updateGlobalNote({
       noteId: req.params.id,
-      userId: req.user.id,
+      userId: req.auth.userId,
       patch: { isDeleted: true }
     });
     
